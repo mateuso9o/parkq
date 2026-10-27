@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ParkQ Gate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/app.css">
+<style>
+  body { background: #0b1430; color: #fff; overflow: hidden; }
+  .kiosk { height: 100vh; grid-template-rows: minmax(0, 1fr); display: grid; grid-template-columns: 1fr 1.1fr; gap: 18px; padding: 18px; }
+  .panel { background: #fff; color: var(--ink); border-radius: 22px; padding: 22px 26px; display: flex; flex-direction: column; }
+  .brand { color: var(--brand); font-weight: 700; font-size: 15px; letter-spacing: .02em; }
+  .lot { font-size: 24px; font-weight: 700; margin-top: 2px; }
+  .dir { display: inline-block; margin-top: 8px; background: var(--brand-soft); color: var(--brand-ink); border-radius: 999px; padding: 4px 12px; font-weight: 700; font-size: 14px; }
+  .free { margin-top: auto; }
+  .free b { font-size: 84px; line-height: 1; font-weight: 700; }
+  .scan { align-items: center; justify-content: center; text-align: center; gap: 10px; }
+  .scan-frame { width: 150px; height: 150px; flex: none; border-radius: 22px; position: relative; display: grid; place-items: center; color: var(--brand); }
+  .scan-frame::before { content: ""; position: absolute; inset: 0; border-radius: 22px; border: 4px solid var(--brand); clip-path: polygon(0 0,30% 0,30% 6%,6% 6%,6% 30%,0 30%,0 70%,6% 70%,6% 94%,30% 94%,30% 100%,70% 100%,70% 94%,94% 94%,94% 70%,100% 70%,100% 30%,94% 30%,94% 6%,70% 6%,70% 0,100% 0,100% 100%,0 100%); }
+  .scan-frame .line { position: absolute; left: 14%; right: 14%; height: 3px; background: var(--brand); border-radius: 3px; animation: scan 2s ease-in-out infinite; box-shadow: 0 0 12px var(--brand); }
+  @keyframes scan { 0%,100% { top: 18%; } 50% { top: 80%; } }
+  .hint { font-size: 22px; font-weight: 700; }
+  #scanInput { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .result { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; padding: 40px; z-index: 30; }
+  .result.ok { background: #15803d; } .result.bad { background: #b91c1c; } .result.pay { background: #fff; color: var(--ink); }
+  .result h1 { font-size: 44px; } .result p { font-size: 22px; margin: 8px 0 0; opacity: .95; }
+  .pay-grid { display: grid; grid-template-columns: auto 1fr; gap: 28px; align-items: center; text-align: left; }
+  .pay-grid img { width: 230px; height: 230px; }
+  .foot { display: flex; gap: 10px; margin-top: 14px; }
+  .manual { width: 100%; display: flex; gap: 8px; }
+  .manual input { flex: 1; }
+</style>
+</head>
+<body>
+<div class="kiosk">
+  <section class="panel">
+    <div class="brand">ตู้ ParkQ Gate</div>
+    <div class="lot" id="lot" data-el="1">…</div>
+    <div><span class="dir" id="dir"></span> <span id="net" class="badge ok" data-el="4">ออนไลน์</span></div>
+    <div class="free" data-el="3"><span class="muted">ช่องว่างคงเหลือ</span><div><b class="num" id="free">–</b> <span class="muted">/ <span id="cap"></span> ช่อง</span></div></div>
+  </section>
+  <section class="panel scan">
+    <div class="scan-frame" data-el="5"><div class="line"></div>
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM14 20h2M20 14v2"/></svg></div>
+    <div class="hint" data-el="2">กรุณาสแกน QR ตั๋วที่เครื่องอ่าน</div>
+    <div class="muted">ยังไม่มีตั๋ว? ซื้อสิทธิ์จอดได้ที่ <b>parkq.app</b></div>
+    <form class="manual" id="manual"><input class="input" id="manualToken" placeholder="ทดสอบ: วางโค้ดตั๋ว แล้วกด Enter"><button class="btn sm">สแกน</button></form>
+    <button class="btn ghost" id="call" data-el="6">เรียกพนักงาน</button>
+  </section>
+</div>
+<input id="scanInput" autocomplete="off">
+<div id="result" class="result hidden"></div>
+<script type="module">
+import { api, qs, esc, baht, fmtTime, qrSrc, toast, startAnnotations } from "/static/js/common.js";
+const lot = qs.get("lot") || "LOT01", dir = qs.get("dir") === "out" ? "out" : "in";
+document.getElementById("dir").textContent = dir === "in" ? "ประตูทางเข้า" : "ประตูทางออก";
+const $ = (id) => document.getElementById(id);
+let config = {};
+let busy = false;
+
+async function info() {
+  try {
+    const i = await api(`/api/gate/${lot}/info`);
+    $("lot").textContent = i.name; $("free").textContent = i.stale ? "–" : i.free; $("cap").textContent = i.capacity;
+    $("net").className = "badge " + (i.stale ? "gray" : "ok"); $("net").textContent = i.stale ? "ออฟไลน์ – ใช้ข้อมูลตั๋วที่ซิงก์ไว้" : "ออนไลน์";
+  } catch { $("net").className = "badge gray"; $("net").textContent = "ออฟไลน์"; }
+}
+
+function show(kind, html, ms = 5000) {
+  if (qs.get("hold") === "1") ms = 0;   // keep the result on screen (demos / documentation screenshots)
+  const r = $("result"); r.className = "result " + kind; r.innerHTML = `<div>${html}</div>`;
+  if (ms) setTimeout(() => { r.className = "result hidden"; busy = false; info(); focusScanner(); }, ms);
+}
+
+async function scan(token) {
+  if (busy || !token.trim()) return;
+  busy = true;
+  try {
+    const r = await api(`/api/gate/${lot}/${dir}/scan`, { method: "POST", body: { token: token.trim() } });
+    if (r.open) show("ok", `<h1 data-el="1">${dir === "in" ? "ยินดีต้อนรับ" : "ขอบคุณที่ใช้บริการ"}</h1><p data-el="2">ทะเบียน ${esc(r.plate || "")}</p><p data-el="3">ไม้กั้นกำลังเปิด…</p>${dir === "in" && r.end_at ? `<p>จอดได้ถึง ${fmtTime(r.end_at)} น.</p>` : ""}`);
+    else if (r.result === "PAY_OVERSTAY") payOverstay(r);
+    else show("bad", `<h1 data-el="1">ไม่สามารถผ่านได้</h1><p data-el="2">${esc(r.message)}</p><button class="btn ghost" style="margin-top:22px;background:#fff" onclick="document.getElementById('call').click()" data-el="3">เรียกพนักงาน</button>`, 7000);
+  } catch (e) { show("bad", `<h1>ระบบขัดข้อง</h1><p>${esc(e.message)}</p>`); }
+}
+
+function payOverstay(r) {
+  const p = r.payment;
+  show("pay", `<div class="pay-grid"><div class="qr-box" data-el="3"><img src="${qrSrc(p.qr_payload)}" alt="QR พร้อมเพย์"></div>
+    <div><div class="brand">ทะเบียน ${esc(r.plate)}</div><h1 style="font-size:34px;margin:6px 0">จอดเกินเวลา</h1>
+      <p class="muted" data-el="1" style="font-size:20px">เกิน ${Math.floor(r.over_minutes / 60)} ชม. ${r.over_minutes % 60} นาที</p>
+      <p data-el="2" style="font-size:20px">ค่าส่วนเกิน <b style="font-size:40px">${baht(p.amount)}</b></p>
+      <p class="muted">สแกนจ่ายด้วยแอปธนาคาร ไม้กั้นจะเปิดอัตโนมัติ</p>
+      ${p.demo ? `<div class="demo-note" style="margin-top:8px">QR ทดสอบ – ไม่ใช่การชำระเงินจริง</div>` : ""}
+      <div class="foot"><button class="btn ghost" id="call2" data-el="4">เรียกพนักงาน</button>${config.dev ? `<button class="btn" id="sim">ทดสอบ: จำลองชำระสำเร็จ</button>` : ""}</div></div></div>`, 0);
+  $("call2").onclick = () => $("call").click();
+  if ($("sim")) $("sim").onclick = () => api(`/api/payments/${p.id}/simulate`, { method: "POST" }).catch(() => {});
+  const poll = setInterval(async () => {
+    const x = await api(`/api/payments/${p.id}`).catch(() => null);
+    if (x?.status === "PAID") { clearInterval(poll); show("ok", `<h1>ชำระเงินแล้ว</h1><p>${esc(r.plate)}</p><p>ไม้กั้นกำลังเปิด… ขอบคุณที่ใช้บริการ</p>`); }
+    if (x?.status === "EXPIRED") { clearInterval(poll); show("bad", `<h1>หมดเวลาชำระ</h1><p>กรุณาสแกนใหม่หรือเรียกพนักงาน</p>`); }
+  }, 2000);
+}
+
+// USB/serial QR readers type the code followed by Enter into the focused field.
+const focusScanner = () => { if (document.activeElement !== $("manualToken")) $("scanInput").focus(); };
+$("scanInput").addEventListener("keydown", (e) => { if (e.key === "Enter") { scan($("scanInput").value); $("scanInput").value = ""; } });
+$("manual").addEventListener("submit", (e) => { e.preventDefault(); scan($("manualToken").value); $("manualToken").value = ""; });
+$("call").addEventListener("click", async () => { await api(`/api/gate/${lot}/${dir}/call`, { method: "POST" }).catch(() => {}); toast("แจ้งพนักงานแล้ว กรุณารอสักครู่"); });
+document.addEventListener("click", (e) => { if (!e.target.closest("input,button")) focusScanner(); });
+
+(async () => {
+  try { config = await api("/api/config"); } catch {}
+  if (!config.dev) $("manual").classList.add("hidden");
+  await info(); setInterval(info, 5000); focusScanner(); startAnnotations();
+  if (qs.get("token")) scan(qs.get("token"));
+  if (qs.get("demo") === "fail") show("bad", `<h1 data-el="1">ไม่สามารถผ่านได้</h1><p data-el="2">QR นี้ถูกใช้แล้ว</p><button class="btn ghost" style="margin-top:22px;background:#fff" data-el="3">เรียกพนักงาน</button>`, 0);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+app/parkq.db*
+build/
+.claude/settings.local.json

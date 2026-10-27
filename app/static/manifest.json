@@ -1,0 +1,8 @@
+{
+  "name": "ParkQ – จองที่จอดรถด้วย QR",
+  "short_name": "ParkQ",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f5fa",
+  "theme_color": "#1f5bff"
+}
