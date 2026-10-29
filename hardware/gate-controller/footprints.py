@@ -14,7 +14,8 @@ Python stdlib only.
 """
 from collections import namedtuple
 
-Pad = namedtuple("Pad", "num x y w h drill shape")   # shape: circle|rect|oval
+Pad = namedtuple("Pad", "num x y w h drill shape slot", defaults=(None,))
+# shape: circle|rect|oval; slot: optional (w, h) oval drill in the pad frame
 
 HDR_PAD, HDR_DRILL = 1.7, 1.0
 PITCH = 2.54
@@ -60,9 +61,9 @@ def _build():
 
     # PJ-002A style barrel jack, opening towards -y (board edge).
     fp["DC_Jack_5.5x2.1"] = (
-        [Pad("1", 0.0, 6.0, 2.4, 3.6, 1.4, "oval"),        # tip
-         Pad("2", 0.0, 0.0, 2.4, 3.6, 1.4, "oval"),        # sleeve
-         Pad("3", 4.7, 3.0, 3.6, 2.4, 1.4, "oval")],       # sleeve switch
+        [Pad("1", 0.0, 6.0, 2.4, 3.6, 1.0, "oval", (1.0, 3.0)),   # tip
+         Pad("2", 0.0, 0.0, 2.4, 3.6, 1.0, "oval", (1.0, 3.0)),   # sleeve
+         Pad("3", 4.7, 3.0, 3.6, 2.4, 1.0, "oval", (3.0, 1.0))],  # switch
         _rect(-4.5, -7.0, 4.5, 7.0) + [("line", -4.5, -4.0, 4.5, -4.0)])
     fp["Fuse_PTC_TH"] = (
         _axial(2.54, 2.0, 1.1),

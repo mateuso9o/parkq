@@ -179,6 +179,21 @@ class PcbTests(unittest.TestCase):
         self.assertEqual(len(re.findall(r"np_thru_hole circle .*?\(size 3\.2 3\.2\) "
                                         r"\(drill 3\.2\)", TEXT)), 4)
 
+    def test_usb_keepout_free_of_pads(self):
+        u1 = part("U1")
+        bottom = u1.y_mm + 25.75                      # USB end faces +y
+        zone = (u1.x_mm - 6.5, bottom - 1.0, u1.x_mm + 6.5, design.BOARD_H_MM)
+        for ref, pad, _net in emit_pcb.placed_pads():
+            if ref == "U1":
+                continue
+            self.assertGreater(gap(rect(pad), zone), 0, "%s.%s in USB zone" % (ref, pad.num))
+
+    def test_jack_pads_have_slot_drills(self):
+        jack = [pd for r, pd, _ in emit_pcb.placed_pads() if r == "J_PWR"]
+        self.assertTrue(all(p.slot and max(p.slot) >= 3.0 for p in jack))
+        self.assertEqual(len(re.findall(r"\(drill oval 1 3\)", TEXT)), 2)
+        self.assertEqual(len(re.findall(r"\(drill oval 3 1\)", TEXT)), 1)
+
     def test_balanced_parens(self):
         self.assertEqual(TEXT.count("("), TEXT.count(")"))
 

@@ -153,10 +153,10 @@ PARTS = [
     # ---- QR readers: 1 +5V, 2 GND, 3 reader TX, 4 reader RX -----------------
     P("J_QR_IN", "QR-IN", "Conn_01x04", "PinHeader_1x04_P2.54",
       {"1": "+5V", "2": "GND", "3": "QR_IN_TX_R", "4": "QR_IN_RX_R"},
-      x_mm=37, y_mm=65, rot=90),
+      x_mm=22, y_mm=24),
     P("J_QR_OUT", "QR-OUT", "Conn_01x04", "PinHeader_1x04_P2.54",
       {"1": "+5V", "2": "GND", "3": "QR_OUT_TX_R", "4": "QR_OUT_RX_R"},
-      x_mm=49, y_mm=65, rot=90),
+      x_mm=22, y_mm=38),
 
     # ---- QR series resistors (1k) + optional DNP dividers (2k) ---------------
     # reader TX -> R1 -> ESP RX (GPIO16);  ESP TX (GPIO17) -> R2 -> reader RX

@@ -26,7 +26,7 @@ POWER_NETS = ["+5V", "GND", "VIN_RAW", "VIN_FUSED"]
 TITLE = "ParkQ Gate Controller v1"
 
 # Reference-designator text position overrides (absolute board mm).
-REF_AT = {"U1": (BOARD_W / 2, 14.8), "J_PWR": (22.0, 4.5), "D1": (17.0, 38.0)}
+REF_AT = {"U1": (BOARD_W / 2, 14.8), "J_PWR": (22.0, 4.5), "D1": (14.2, 38.0)}
 # Mounting holes and pin headers carry their own silkscreen names instead.
 HIDE_REF = tuple(p.ref for p in design.PARTS
                  if p.footprint.startswith(("PinHeader", "MountingHole")))
@@ -48,8 +48,11 @@ def _unrot(bx, by, rot):
 def abs_pad(part, pad):
     dx, dy = _rot(pad.x, pad.y, part.rot)
     w, h = (pad.h, pad.w) if part.rot % 180 == 90 else (pad.w, pad.h)
+    slot = pad.slot
+    if slot and part.rot % 180 == 90:
+        slot = (slot[1], slot[0])
     return Pad(pad.num, round(part.x_mm + dx, 4), round(part.y_mm + dy, 4),
-               w, h, pad.drill, pad.shape)
+               w, h, pad.drill, pad.shape, slot)
 
 
 def placed_pads():
@@ -174,10 +177,12 @@ def _module(idx, part, ids):
                         _fmt(pad.drill)))
             continue
         netstr = (' (net %d "%s")' % (ids[net], net)) if net else ""
+        drill = ("oval %s %s" % (_fmt(pad.slot[0]), _fmt(pad.slot[1]))
+                 if pad.slot else _fmt(pad.drill))
         s.append('    (pad "%s" thru_hole %s (at %s %s%s) (size %s %s) (drill %s) '
                  '(layers *.Cu *.Mask)%s)\n'
                  % (pad.num, pad.shape, _fmt(pad.x), _fmt(pad.y), ang,
-                    _fmt(pad.w), _fmt(pad.h), _fmt(pad.drill), netstr))
+                    _fmt(pad.w), _fmt(pad.h), drill, netstr))
     s.append("  )\n")
     return "".join(s)
 
@@ -327,8 +332,13 @@ def write_png(path, scale=14):
                                 fill=gold)
         else:
             d.ellipse([x0, y0, x1, y1], fill=gold)
-        r = p.drill / 2
-        d.ellipse([px(p.x - r, p.y - r), px(p.x + r, p.y + r)], fill=(10, 10, 10))
+        if p.slot:
+            sx, sy = p.slot[0] / 2, p.slot[1] / 2
+            d.rounded_rectangle([px(p.x - sx, p.y - sy), px(p.x + sx, p.y + sy)],
+                                radius=min(sx, sy) * scale, fill=(10, 10, 10))
+        else:
+            r = p.drill / 2
+            d.ellipse([px(p.x - r, p.y - r), px(p.x + r, p.y + r)], fill=(10, 10, 10))
     for part in design.PARTS:
         if part.ref in HIDE_REF:
             continue
