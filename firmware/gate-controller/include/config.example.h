@@ -7,8 +7,8 @@
 
 // https:// for the deployed site, http://192.168.x.x:8000 for a LAN server.
 #define API_BASE    "https://parkq.onrender.com"
-#define LOT_ID      "L001"             // parking lot id registered on the server
-#define DEVICE_KEY  "dev-key-xxxxxxxx" // lots.device_key of that lot
+#define LOT_ID      "LOT02"            // the only seeded lot that has a device key
+#define DEVICE_KEY  "dev-key-LOT02"    // lots.device_key of LOT02 (public demo seed, not a secret)
 
 // QR reader (GM65/GM861) default baud rate
 #define QR_BAUD     9600
