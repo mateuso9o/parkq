@@ -45,14 +45,15 @@ struct Gate {
   int servoPin;
   HardwareSerial* qr;
   String line;            // QR text being received
+  uint32_t lastByteAt;    // millis() of the last received byte
   bool open;
   uint32_t closeAt;
 };
 
 static HardwareSerial qrOutSerial(1);
 static Gate gates[2] = {
-  {"in",  Servo(), PIN_SERVO_IN,  &Serial2,     "", false, 0},
-  {"out", Servo(), PIN_SERVO_OUT, &qrOutSerial, "", false, 0},
+  {"in",  Servo(), PIN_SERVO_IN,  &Serial2,     "", 0, false, 0},
+  {"out", Servo(), PIN_SERVO_OUT, &qrOutSerial, "", 0, false, 0},
 };
 
 static const int SLOT_PINS[4] = {PIN_SLOT1, PIN_SLOT2, PIN_SLOT3, PIN_SLOT4};
@@ -157,19 +158,29 @@ static void sendScan(Gate& g, const String& token) {
   if (ok) openGate(g); else feedback(false);
 }
 
-// Collect characters until \r or \n; empty lines are ignored.
+// Collect characters until \r or \n, OR until the reader has been silent for
+// QR_IDLE_MS with something in the buffer (readers with no line ending);
+// empty lines are ignored.
+static const uint32_t QR_IDLE_MS = 100;
+
+static void finishQrLine(Gate& g) {
+  g.line.trim();
+  String token = g.line;
+  g.line = "";
+  if (token.length() > 0) sendScan(g, token);
+}
+
 static void readQr(Gate& g) {
   while (g.qr->available()) {
     char c = g.qr->read();
+    g.lastByteAt = millis();
     if (c == '\r' || c == '\n') {
-      g.line.trim();
-      String token = g.line;
-      g.line = "";
-      if (token.length() > 0) sendScan(g, token);
+      finishQrLine(g);
     } else if (g.line.length() < QR_MAX_LEN) {
       g.line += c;
     }
   }
+  if (g.line.length() > 0 && millis() - g.lastByteAt >= QR_IDLE_MS) finishQrLine(g);
 }
 
 // ---- slot sensors: POST /api/iot/{lot}/slots -----------------------------------

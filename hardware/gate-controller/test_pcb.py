@@ -191,18 +191,40 @@ class PcbTests(unittest.TestCase):
     def test_jack_pads_have_slot_drills(self):
         jack = [pd for r, pd, _ in emit_pcb.placed_pads() if r == "J_PWR"]
         self.assertTrue(all(p.slot and max(p.slot) >= 3.0 for p in jack))
-        self.assertEqual(len(re.findall(r"\(drill oval 1 3\)", TEXT)), 2)
-        self.assertEqual(len(re.findall(r"\(drill oval 3 1\)", TEXT)), 1)
+        # jack axis = Y: tip/sleeve blades lie across it (slot long in x),
+        # switch blade lies along it (slot long in y)
+        self.assertEqual(len(re.findall(r"\(drill oval 3 1\)", TEXT)), 2)
+        self.assertEqual(len(re.findall(r"\(drill oval 1 3\)", TEXT)), 1)
+        by = {p.num: p for p in jack}
+        for n in ("1", "2"):
+            self.assertEqual((by[n].w, by[n].h, by[n].slot), (3.6, 2.4, (3.0, 1.0)))
+        self.assertEqual((by["3"].w, by["3"].h, by["3"].slot), (2.4, 3.6, (1.0, 3.0)))
+
+    def test_d1_drill_fits_do201ad_leads(self):
+        d1 = [pd for r, pd, _ in emit_pcb.placed_pads() if r == "D1"]
+        self.assertTrue(all(p.drill >= 1.5 and p.w >= 3.0 for p in d1))
+
+    def test_power_chain_reads_top_to_bottom(self):
+        ys = {(r, p.num): p.y for r, p, _ in emit_pcb.placed_pads()
+              if r in ("J_PWR", "F1", "D1", "C1")}
+        self.assertLess(ys[("F1", "1")], ys[("F1", "2")])
+        self.assertLess(ys[("F1", "2")], ys[("D1", "1")])
+        self.assertLess(ys[("D1", "1")], ys[("D1", "2")])     # band (cathode) low
+        self.assertLess(ys[("D1", "2")], ys[("C1", "1")])
 
     def test_balanced_parens(self):
         self.assertEqual(TEXT.count("("), TEXT.count(")"))
 
     def test_build_all_writes_outputs(self):
         import build_all
+        try:
+            import PIL  # noqa: F401
+            have_png = True
+        except ImportError:
+            have_png = False
         with tempfile.TemporaryDirectory() as d:
             build_all.main(Path(d))
-            for name in ("ParkQ_Gate_SCH.zip", "ParkQ_Gate_PCB.zip",
-                         "ParkQ_Gate_layout.png"):
+            for name in ("ParkQ_Gate_SCH.zip", "ParkQ_Gate_PCB.zip") +                     (("ParkQ_Gate_layout.png",) if have_png else ()):
                 self.assertTrue((Path(d) / name).stat().st_size > 1000, name)
             with zipfile.ZipFile(Path(d) / "ParkQ_Gate_PCB.zip") as z:
                 self.assertEqual(z.namelist(), ["ParkQ_Gate.kicad_pcb"])

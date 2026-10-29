@@ -16,8 +16,13 @@ def main(out_dir=None):
     out.mkdir(parents=True, exist_ok=True)
     emit_sch.write(out / "ParkQ_Gate_SCH.zip")
     emit_pcb.write(out / "ParkQ_Gate_PCB.zip")
-    emit_pcb.write_png(out / "ParkQ_Gate_layout.png")
-    for name in ("ParkQ_Gate_SCH.zip", "ParkQ_Gate_PCB.zip", "ParkQ_Gate_layout.png"):
+    names = ["ParkQ_Gate_SCH.zip", "ParkQ_Gate_PCB.zip"]
+    try:
+        emit_pcb.write_png(out / "ParkQ_Gate_layout.png")
+        names.append("ParkQ_Gate_layout.png")
+    except ImportError:
+        print("pip install pillow to also get the layout preview")
+    for name in names:
         print("wrote", out / name)
 
 

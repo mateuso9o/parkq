@@ -132,9 +132,9 @@ PARTS = [
     P("J_PWR", "DC-Jack 5.5x2.1", "DC_Jack", "DC_Jack_5.5x2.1",
       {"1": "VIN_RAW", "2": "GND"}, x_mm=14, y_mm=8),
     P("F1", "PTC 2A", "PTC_Fuse", "Fuse_PTC_TH",
-      {"1": "VIN_RAW", "2": "VIN_FUSED"}, x_mm=10, y_mm=26, rot=90),
+      {"1": "VIN_RAW", "2": "VIN_FUSED"}, x_mm=10, y_mm=26, rot=270),
     P("D1", "1N5822", "Diode", "D_DO-201AD",       # anode VIN_FUSED, cathode +5V
-      {"1": "VIN_FUSED", "2": "+5V"}, x_mm=10, y_mm=38, rot=90),
+      {"1": "VIN_FUSED", "2": "+5V"}, x_mm=10, y_mm=38, rot=270),
     P("C1", "470uF 16V", "CP", "CP_Radial_D8_P3.5",
       {"1": "+5V", "2": "GND"}, x_mm=19, y_mm=56),
     P("C2", "100nF", "C", "C_Disc_P5.0",

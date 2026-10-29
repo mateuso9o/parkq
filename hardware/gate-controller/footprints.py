@@ -52,6 +52,18 @@ def _hdr_gfx(n):
     return _rect(-1.27, -1.27, 1.27, round((n - 1) * PITCH + 1.27, 3))
 
 
+def _to92_gfx():
+    """D-shaped TO-92 outline: round side at -y, FLAT side at +y (pins E-B-C
+    left to right when the flat faces the viewer/bottom of the silk)."""
+    import math
+    r, yf = 2.6, 1.8
+    pts = [(-r, yf), (-r, 0.0)]
+    pts += [(round(-r * math.cos(math.radians(a)), 3),
+             round(-r * math.sin(math.radians(a)), 3)) for a in range(15, 180, 15)]
+    pts += [(r, 0.0), (r, yf), (-r, yf)]
+    return [("line",) + pts[i] + pts[i + 1] for i in range(len(pts) - 1)]
+
+
 def _build():
     import design
     pitch = design.DEVKIT_ROW_PITCH_MM
@@ -59,17 +71,19 @@ def _build():
     devkit = [p._replace(x=(-pitch / 2 if p.x < 0 else pitch / 2)) for p in devkit]
     fp = {}
 
-    # PJ-002A style barrel jack, opening towards -y (board edge).
+    # PJ-002A style barrel jack, opening towards -y (board edge).  Jack axis = Y.
+    # Tip/sleeve blades lie ACROSS the axis (slot long in x); the switch blade
+    # lies ALONG it (slot long in y) - KiCad BarrelJack_Horizontal rotated 90 deg.
     fp["DC_Jack_5.5x2.1"] = (
-        [Pad("1", 0.0, 6.0, 2.4, 3.6, 1.0, "oval", (1.0, 3.0)),   # tip
-         Pad("2", 0.0, 0.0, 2.4, 3.6, 1.0, "oval", (1.0, 3.0)),   # sleeve
-         Pad("3", 4.7, 3.0, 3.6, 2.4, 1.0, "oval", (3.0, 1.0))],  # switch
+        [Pad("1", 0.0, 6.0, 3.6, 2.4, 1.0, "oval", (3.0, 1.0)),   # tip: blade lies across the Y axis
+         Pad("2", 0.0, 0.0, 3.6, 2.4, 1.0, "oval", (3.0, 1.0)),   # sleeve: same
+         Pad("3", 4.7, 3.0, 2.4, 3.6, 1.0, "oval", (1.0, 3.0))],  # switch: along the axis
         _rect(-4.5, -7.0, 4.5, 7.0) + [("line", -4.5, -4.0, 4.5, -4.0)])
     fp["Fuse_PTC_TH"] = (
         _axial(2.54, 2.0, 1.1),
         _rect(-4.2, -2.4, 4.2, 2.4))
     fp["D_DO-201AD"] = (
-        _axial(6.35, 2.5, 1.3),
+        _axial(6.35, 3.0, 1.5),
         _rect(-4.75, -2.65, 4.75, 2.65) + _rect(3.0, -2.65, 4.0, 2.65))
     fp["CP_Radial_D8_P3.5"] = (
         [Pad("1", -1.75, 0.0, 1.8, 1.8, 0.9, "rect"),
@@ -96,7 +110,7 @@ def _build():
         [Pad("1", -2.54, 0.0, 1.5, 1.5, 0.8, "rect"),       # E
          Pad("2", 0.0, 0.0, 1.5, 1.5, 0.8, "circle"),       # B
          Pad("3", 2.54, 0.0, 1.5, 1.5, 0.8, "circle")],     # C
-        _rect(-2.6, -1.8, 2.6, 1.8))
+        _to92_gfx())
     fp["D_DO-35_P7.62"] = (
         _axial(3.81, 1.6, 0.8),
         _rect(-1.8, -0.9, 1.8, 0.9) + _rect(0.9, -0.9, 1.3, 0.9))
