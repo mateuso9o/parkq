@@ -130,7 +130,7 @@ def P(*args, **kw):
 PARTS = [
     # ---- power input ------------------------------------------------------
     P("J_PWR", "DC-Jack 5.5x2.1", "DC_Jack", "DC_Jack_5.5x2.1",
-      {"1": "VIN_RAW", "2": "GND"}, x_mm=12, y_mm=14),
+      {"1": "VIN_RAW", "2": "GND"}, x_mm=14, y_mm=8),
     P("F1", "PTC 2A", "PTC_Fuse", "Fuse_PTC_TH",
       {"1": "VIN_RAW", "2": "VIN_FUSED"}, x_mm=10, y_mm=26, rot=90),
     P("D1", "1N5822", "Diode", "D_DO-201AD",       # anode VIN_FUSED, cathode +5V
@@ -200,13 +200,13 @@ PARTS = [
 
     # ---- buzzer: GPIO4 -> 1k -> S8050 base; buzzer on +5V, flyback 1N4148 ----
     P("R10", "1k", "R", "R_Axial_P7.62",
-      {"1": "BUZZER", "2": "BUZ_B"}, x_mm=70, y_mm=61),
+      {"1": "BUZZER", "2": "BUZ_B"}, x_mm=71, y_mm=58, rot=90),
     P("Q1", "S8050", "Q_NPN_EBC", "TO-92_Inline",       # 1 E, 2 B, 3 C
       {"1": "GND", "2": "BUZ_B", "3": "BUZ_C"}, x_mm=64, y_mm=61),
     P("D2", "1N4148", "Diode", "D_DO-35_P7.62",         # cathode on +5V
-      {"1": "BUZ_C", "2": "+5V"}, x_mm=58, y_mm=59, rot=90),
+      {"1": "BUZ_C", "2": "+5V"}, x_mm=58, y_mm=58, rot=90),
     P("BZ1", "Active buzzer 5V", "Buzzer", "Buzzer_12x9.5",
-      {"1": "+5V", "2": "BUZ_C"}, x_mm=64, y_mm=50),
+      {"1": "+5V", "2": "BUZ_C"}, x_mm=64, y_mm=48),
 
     # ---- mounting holes -------------------------------------------------------
     P("H1", "M3", "MountingHole", "MountingHole_3.2mm", x_mm=5, y_mm=5),
