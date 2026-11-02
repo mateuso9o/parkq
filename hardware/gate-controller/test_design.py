@@ -211,6 +211,27 @@ class SchematicTests(unittest.TestCase):
         for x, y, _ in labels:   # every label sits on a wire end
             self.assertIn((x, y), ends)
 
+    def test_labels_are_left_justified(self):
+        # EasyEDA Std shifts a right-justified (orientation 2) label left by its
+        # text width on import, so it no longer touches its wire and the net
+        # loses every pin. Only orientation 0 survives the import.
+        orients = re.findall(r"^Text Label -?\d+ -?\d+ (\d+) ", self.sch, re.M)
+        self.assertTrue(orients)
+        self.assertEqual(set(orients), {"0"})
+
+    def test_left_side_wire_runs_under_its_label(self):
+        # A left-justified label on a left-side pin sits at the far end of the
+        # wire with its text running back toward the pin, so the wire must be
+        # at least as long as the text (about 50 mils per character).
+        labels = re.findall(r"^Text Label (-?\d+) (-?\d+) \d+ .*\n(.+)$", self.sch, re.M)
+        wires = re.findall(r"^Wire Wire Line\n\t(-?\d+) (-?\d+) (-?\d+) (-?\d+)$",
+                           self.sch, re.M)
+        by_end = {(c, d): int(a) - int(c) for a, b, c, d in wires}
+        for x, y, name in labels:
+            run = by_end.get((x, y))
+            if run is not None and run > 0:     # wire goes left from the pin
+                self.assertGreaterEqual(run, 50 * len(name), name)
+
     def test_no_overlapping_components(self):
         pos = re.findall(r"^P (-?\d+) (-?\d+)$", self.sch, re.M)
         self.assertEqual(len(pos), len(set(pos)))

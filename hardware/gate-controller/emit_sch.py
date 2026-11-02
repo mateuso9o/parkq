@@ -143,11 +143,17 @@ def sch_text():
             if not net:
                 body.append("NoConn ~ %d %d\n" % (sx, sy))
                 continue
-            dx = -STUB if orient == "R" else STUB    # stub points away from body
-            ex = sx + dx
+            # Labels are always left-justified (orientation 0): EasyEDA Std
+            # moves right-justified labels off their wire on import. On a
+            # left-side pin the wire is stretched so the label can sit at its
+            # far end with the text running back over the wire.
+            if orient == "R":
+                run = -(-(STUB + 50 * len(net)) // 50) * 50
+                ex = sx - run
+            else:
+                ex = sx + STUB
             body.append("Wire Wire Line\n\t%d %d %d %d\n" % (sx, sy, ex, sy))
-            body.append("Text Label %d %d %d    50   ~ 0\n%s\n"
-                        % (ex, sy, 2 if dx < 0 else 0, net))
+            body.append("Text Label %d %d 0    50   ~ 0\n%s\n" % (ex, sy, net))
     out.extend(body)
     out.append("$EndSCHEMATC\n")
     return "".join(out)

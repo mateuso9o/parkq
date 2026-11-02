@@ -45,8 +45,9 @@ DevKit 30 ขามี 2 แบบ:
 python hardware/gate-controller/build_all.py
 ```
 
-จะได้ 3 ไฟล์ (รูป PNG ต่อเมื่อลง Pillow) ในโฟลเดอร์ `hardware/gate-controller/build/`:
+จะได้ 4 ไฟล์ (รูป PNG ต่อเมื่อลง Pillow) ในโฟลเดอร์ `hardware/gate-controller/build/`:
 
+- `ParkQ_Gate_ALL.zip` – **ไฟล์ที่แนะนำ** มีวงจร + ไลบรารี + PCB ใน ZIP เดียว นำเข้าครั้งเดียวได้ทั้งสองเอกสารในโปรเจกต์เดียวกัน
 - `ParkQ_Gate_SCH.zip` – แผนผังวงจร (schematic) พร้อมไลบรารีสัญลักษณ์
 - `ParkQ_Gate_PCB.zip` – แผ่นปริ้นท์ (PCB) อย่างเดียว
 - `ParkQ_Gate_layout.png` – รูปแสดงตำแหน่งชิ้นส่วน (ต้องลง `pip install pillow`)
@@ -58,6 +59,16 @@ python hardware/gate-controller/build_all.py
 ### 1.2 นำเข้า (Import)
 
 ใช้ **EasyEDA Standard** (https://easyeda.com/editor) ไม่ใช่ Pro ไฟล์ของเราเป็นรูปแบบ KiCad รุ่นเก่า (5.0) เพราะ EasyEDA รับ KiCad 4.06 ขึ้นไป
+
+**วิธีที่แนะนำ: นำเข้าครั้งเดียว**
+
+1. File → Open → Kicad... → กด OK ที่หน้าต่าง Tips → Select file(s) → เลือก `ParkQ_Gate_ALL.zip` → Import File
+2. ได้โปรเจกต์ที่มีทั้งวงจรและ PCB ให้กด File → Save... บันทึกเป็นโปรเจกต์ใหม่
+3. ในวงจร เปิด Design Manager → Nets แล้วกดปุ่ม Refresh ต้องได้ **Nets (27 / 27)** โดยไม่มีกากบาทแดง
+
+**อย่าใช้ Design → Convert Schematic to PCB** เพราะ footprint ของเรา (เช่น `ParkQ_Gate:R_Axial_P7.62`) ไม่มีในคลังของ EasyEDA จะขึ้นหน้าต่าง Footprints Verification ว่าหาไม่เจอทุกชิ้น ใช้ PCB ที่นำเข้ามาพร้อมกันแทน ซึ่งมีตำแหน่งชิ้นส่วนและเส้นเชื่อมต่อครบแล้ว
+
+**หรือนำเข้าแยกทีละไฟล์**
 
 **แผนผังวงจร (Schematic)**
 

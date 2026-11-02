@@ -228,6 +228,11 @@ class PcbTests(unittest.TestCase):
                 self.assertTrue((Path(d) / name).stat().st_size > 1000, name)
             with zipfile.ZipFile(Path(d) / "ParkQ_Gate_PCB.zip") as z:
                 self.assertEqual(z.namelist(), ["ParkQ_Gate.kicad_pcb"])
+            # EasyEDA Std imports schematic + PCB as one project only when
+            # both sit in the same zip (its KiCad import tip says so).
+            with zipfile.ZipFile(Path(d) / "ParkQ_Gate_ALL.zip") as z:
+                self.assertEqual(sorted(z.namelist()),
+                                 ["ParkQ_Gate.kicad_pcb", "ParkQ_Gate.lib", "ParkQ_Gate.sch"])
                 self.assertTrue(z.read("ParkQ_Gate.kicad_pcb").decode("ascii")
                                 .startswith("(kicad_pcb (version 20171130)"))
             self.assertEqual((Path(d) / "ParkQ_Gate_layout.png").read_bytes()[:4],
