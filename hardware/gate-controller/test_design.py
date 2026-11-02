@@ -176,8 +176,11 @@ class SchematicTests(unittest.TestCase):
         self.assertEqual(self.sch.count("$EndComp"), len(design.PARTS))
         connected = sum(len([n for n in p.pins.values() if n]) for p in design.PARTS)
         self.assertEqual(len(re.findall(r"^Text Label ", self.sch, re.M)), connected)
+        # EasyEDA Std resolves symbols by bare name only (KiCad 4 style);
+        # a "nickname:symbol" reference imports with the symbol body missing.
         for p in design.PARTS:
-            self.assertIn("L ParkQ_Gate:%s %s\n" % (p.symbol, p.ref), self.sch)
+            self.assertIn("L %s %s\n" % (p.symbol, p.ref), self.sch)
+        self.assertNotIn("L ParkQ_Gate:", self.sch)
         symbols = {p.symbol for p in design.PARTS}
         for sym in symbols:
             self.assertIn("DEF %s " % sym, self.lib)

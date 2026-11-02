@@ -124,8 +124,10 @@ def sch_text():
         sym = design.SYMBOLS[p.symbol]
         half, top, bottom, pos = _layout(sym)
         cx, cy = placed[p.ref]
-        out.append("$Comp\nL %s:%s %s\nU 1 1 %08X\nP %d %d\n"
-                   % (LIBNAME, p.symbol, p.ref, 0x5C000000 + n, cx, cy))
+        # Bare symbol name (KiCad 4 style): EasyEDA Std drops the symbol body
+        # when the reference carries a "LIBNAME:" prefix.
+        out.append("$Comp\nL %s %s\nU 1 1 %08X\nP %d %d\n"
+                   % (p.symbol, p.ref, 0x5C000000 + n, cx, cy))
         out.append('F 0 "%s" H %d %d 50  0000 C CNN\n'
                    % (p.ref, cx, cy - top - 100))
         out.append('F 1 "%s" H %d %d 50  0000 C CNN\n'

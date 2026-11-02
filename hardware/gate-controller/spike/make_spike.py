@@ -44,6 +44,7 @@ ENDDEF
 #   R1  (at 4000,3000): pin1 (4000,2850), pin2 (4000,3150)
 #   J1  (at 2500,3000): pin1 (2300,3000), pin2 (2300,3100)
 SCH = """EESchema Schematic File Version 4
+LIBS:spike
 EELAYER 26 0
 EELAYER END
 $Descr A4 11693 8268
@@ -59,7 +60,7 @@ Comment3 ""
 Comment4 ""
 $EndDescr
 $Comp
-L spike:R R1
+L R R1
 U 1 1 5C000001
 P 4000 3000
 F 0 "R1" V 3920 3000 50  0000 C CNN
@@ -70,7 +71,7 @@ F 3 "" H 4000 3000 50  0001 C CNN
 	1    0    0    -1
 $EndComp
 $Comp
-L spike:CONN_01X02 J1
+L CONN_01X02 J1
 U 1 1 5C000002
 P 2500 3000
 F 0 "J1" H 2500 3150 50  0000 C CNN
