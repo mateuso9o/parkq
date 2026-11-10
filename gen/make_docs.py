@@ -242,8 +242,8 @@ def cover(d, proj_name, th_desc, doc_title):
     for _ in range(4):
         para(d)
     t = table(d, ["รายการ", "รายละเอียด"], [
-        ("ชื่อกลุ่ม", "...................................................."),
-        ("สมาชิก / บทบาท", "1. ............................ (PM)\n2. ............................ (SA)\n3. ............................ (Developer)\n4. ............................ (QA)"),
+        ("ชื่อกลุ่ม", GROUP_NAME),
+        ("สมาชิก / บทบาท", "\n".join(f"{i}. {n}  รหัส {sid} ({' / '.join(r)})" for i, (n, sid, r) in enumerate(MEMBERS, 1))),
         ("รายวิชา", "Software Engineering (ทฤษฎี + ปฏิบัติ)"),
         ("เวอร์ชันเอกสาร / วันที่", f"{VERSION} / {DOC_DATE}"),
     ], [5, 10], size=10.5)
@@ -253,8 +253,8 @@ def cover(d, proj_name, th_desc, doc_title):
 def history(d, purpose):
     heading(d, "ประวัติการจัดทำเอกสาร", 2)
     table(d, ["ลำดับ", "เวอร์ชัน", "รายละเอียดการดำเนินการ", "ผู้ดำเนินการ (วันที่)", "ผู้อนุมัติ (วันที่)"], [
-        ("1", "0.1", f"จัดทำ{purpose}", f"SA ({DOC_DATE})", ""),
-        ("2", "1.0", f"ทบทวนและอนุมัติ{purpose}", f"QA ({DOC_DATE})", f"PM ({DOC_DATE})"),
+        ("1", "0.1", f"จัดทำ{purpose}", f"{ROLE_MEMBER['SA']} (SA) {DOC_DATE}", ""),
+        ("2", "1.0", f"ทบทวนและอนุมัติ{purpose}", f"{ROLE_MEMBER['QA']} (QA) {DOC_DATE}", f"{ROLE_MEMBER['PM']} (PM) {DOC_DATE}"),
     ], [1.3, 1.7, 6.3, 3.6, 3.6], center_cols=(0, 1))
 
 
@@ -319,7 +319,8 @@ def build_w5():
          " โดยมี Workflow หลักของระบบ 3 กระบวนการดังนี้")
     for k, (key, cap) in enumerate((("wf1_booking", "Workflow 1 ค้นหา ซื้อสิทธิ์/จอง และชำระเงิน"),
                                      ("wf2_gate", "Workflow 2 เข้า-ออกลานจอดด้วย QR Code"),
-                                     ("wf3_iot", "Workflow 3 อัปเดตสถานะช่องจอดจากเซ็นเซอร์ IoT")), start=2):
+                                     ("wf3_iot", "Workflow 3 อัปเดตสถานะช่องจอดจากเซ็นเซอร์ IoT"),
+                                     ("wf4_admin", "Workflow 4 ผู้ดูแลตั้งค่าลานจอดและติดตามรายได้")), start=2):
         image(d, IMG / f"{key}.png", 11.5, f"ภาพที่ {k} {cap}")
     heading(d, "3.2 Requirements Functionality", 2)
     para(d, "ระบบ ParkQ ต้องมีความสามารถดังต่อไปนี้ (Requirement ID อ้างอิงจาก Use Case ที่ออกแบบไว้ในสัปดาห์ที่ 4)")
@@ -577,7 +578,7 @@ def build_w8(ut_out, passed, all_ok):
     for m, r in ALL_REQS:
         screens = [s["code"] for s in SCREENS if r[0] in s["req"]]
         tcs, uts = tests_for(r[0])
-        rows.append((r[0], f"{r[1]}\n{r[2]}", f"Use Case: UC-{r[0]}\nWorkflow + Screens:\n" + "\n".join(screens),
+        rows.append((r[0], f"{r[1]}\n{r[2]}", f"Use Case: UC-{r[0].replace('_', '-')}\nScreens:\n" + "\n".join(screens),
                      COMPONENTS[r[0]].replace("; ", "\n"), "\n".join(tcs + uts)))
     table(d, ["เลขที่ความต้องการ", "สรุปสาระสำคัญความต้องการของระบบ", "Software Design", "Software Components", "Test Cases"],
           rows, [2.5, 4.6, 3.2, 4, 2.2], size=8.5, center_cols=(0,))

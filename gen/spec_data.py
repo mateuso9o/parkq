@@ -6,6 +6,15 @@ SYSTEM_SHORT = "ParkQ"
 VERSION = "1.0"
 DOC_DATE = "27/10/2569"
 
+GROUP_NAME = "ParkQ"
+# (name, student id, roles) — 3 members cover the 4 roles; PM also does QA review
+MEMBERS = [
+    ("นาย พีรพัฒน์ เครือวัลย์", "68076264", ["PM", "QA"]),
+    ("สงกรานต์ บุญเสริม", "68078846", ["SA"]),
+    ("นาย ภูริภัทร เมตมาตร์", "68051956", ["Dev"]),
+]
+ROLE_MEMBER = {r: name for name, _, roles in MEMBERS for r in roles}
+
 INTRO = (
     "ระบบงาน ParkQ เป็นระบบที่ให้ผู้ขับขี่ตรวจสอบสถานะลานจอดรถหรือที่ฝากรถได้แบบเรียลไทม์ว่า "
     "ว่าง ใกล้เต็ม หรือเต็ม และสามารถกดซื้อสิทธิ์จอดทันทีหรือจองที่จอดล่วงหน้าผ่านช่องทางออนไลน์ "

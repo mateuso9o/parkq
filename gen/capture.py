@@ -4,6 +4,7 @@ Needs a fresh dev server:  PARKQ_RESET=1 python -m uvicorn server:app --app-dir 
 Then:                      python gen/capture.py
 """
 import json
+import os
 import sqlite3
 import subprocess
 import sys
@@ -15,7 +16,8 @@ from screens_data import SCREENS
 
 ROOT = Path(__file__).resolve().parent.parent
 BASE = "http://127.0.0.1:8000"
-IMG = ROOT / "build" / "img"
+CLEAN = os.environ.get("PARKQ_CLEAN") == "1"           # screenshots without element markers (for slides)
+IMG = ROOT / "build" / ("clean" if CLEAN else "img")
 CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 DB = ROOT / "app" / "parkq.db"
 
@@ -67,6 +69,8 @@ def fixtures() -> dict:
 
 
 def with_annotate(url: str) -> str:
+    if CLEAN:
+        return BASE + url
     path, _, frag = url.partition("#")
     path += ("&" if "?" in path else "?") + "annotate=1"
     return BASE + path + (("#" + frag) if frag else "")
@@ -79,7 +83,7 @@ def shoot(code, url, size):
     """Headless Chrome cannot go narrower than ~500px, so phone screens render at 600px and are cropped to the app column."""
     out = IMG / f"{code}.png"
     if size[0] < 500:
-        size = (600, size[1])
+        size = (600, 1040 if CLEAN else size[1])   # slides use a real phone aspect (about 9:19.5)
     profile = ROOT / "build" / "chrome" / code
     cmd = [CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=2",
            f"--user-data-dir={profile}", f"--window-size={size[0]},{size[1]}", f"--screenshot={out}",
