@@ -132,9 +132,12 @@ def sch_text():
                    % (p.ref, cx, cy - top - 100))
         out.append('F 1 "%s" H %d %d 50  0000 C CNN\n'
                    % (p.value, cx, cy - bottom + 100))
-        out.append('F 2 "%s:%s" H %d %d 50  0001 C CNN\n'
-                   % (LIBNAME, p.footprint, cx, cy))
+        easyeda_fp = getattr(design, "EASYEDA_FOOTPRINT_MAP", {}).get(p.footprint, p.footprint)
+        out.append('F 2 "%s" H %d %d 50  0001 C CNN\n'
+                   % (easyeda_fp, cx, cy))
         out.append('F 3 "" H %d %d 50  0001 C CNN\n' % (cx, cy))
+        if getattr(p, "lcsc", ""):
+            out.append('F 4 "%s" H %d %d 50  0001 C CNN "LCSC"\n' % (p.lcsc, cx, cy))
         out.append("\t1    %d %d\n\t1    0    0    -1\n$EndComp\n" % (cx, cy))
         for num, (px, py, orient, _) in sorted(
                 pos.items(), key=lambda kv: int(kv[0])):

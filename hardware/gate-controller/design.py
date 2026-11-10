@@ -33,6 +33,23 @@ DEVKIT_ROW_PITCH_MM = 25.4   # measure the real DevKit (25.4 or 22.86) first
 
 # Signal name -> ESP32 GPIO number (spec section 6.2).  "RX"/"TX" are from
 # the ESP32's point of view: QR_IN_RX (GPIO16) listens to the reader's TX.
+EASYEDA_FOOTPRINT_MAP = {
+    "DC_Jack_5.5x2.1": "DC-005",
+    "Fuse_PTC_TH": "RAD-0.2",
+    "D_DO-201AD": "DO-201AD",
+    "CP_Radial_D8_P3.5": "C0812",
+    "C_Disc_P5.0": "RAD-0.2",
+    "ESP32_DevKit_30pin": "ESP32",
+    "PinHeader_1x03_P2.54": "SIP-3",
+    "PinHeader_1x04_P2.54": "SIP-4",
+    "R_Axial_P7.62": "AXIAL-0.3",
+    "LED_D5.0": "LED-5MM",
+    "TO-92_Inline": "TO-92",
+    "D_DO-35_P7.62": "DO-35",
+    "Buzzer_12x9.5": "BUZZER",
+    "MountingHole_3.2mm": "HOLE",
+}
+
 GPIO_MAP = {
     "QR_IN_RX": 16, "QR_IN_TX": 17,
     "QR_OUT_RX": 32, "QR_OUT_TX": 33,
@@ -130,83 +147,83 @@ def P(*args, **kw):
 PARTS = [
     # ---- power input ------------------------------------------------------
     P("J_PWR", "DC-Jack 5.5x2.1", "DC_Jack", "DC_Jack_5.5x2.1",
-      {"1": "VIN_RAW", "2": "GND"}, x_mm=14, y_mm=8),
+      {"1": "VIN_RAW", "2": "GND"}, lcsc="C319160", x_mm=14, y_mm=8),
     P("F1", "PTC 2A", "PTC_Fuse", "Fuse_PTC_TH",
-      {"1": "VIN_RAW", "2": "VIN_FUSED"}, x_mm=10, y_mm=26, rot=270),
+      {"1": "VIN_RAW", "2": "VIN_FUSED"}, lcsc="C161986", x_mm=10, y_mm=26, rot=270),
     P("D1", "1N5822", "Diode", "D_DO-201AD",       # anode VIN_FUSED, cathode +5V
-      {"1": "VIN_FUSED", "2": "+5V"}, x_mm=10, y_mm=38, rot=270),
+      {"1": "VIN_FUSED", "2": "+5V"}, lcsc="C84619", x_mm=10, y_mm=38, rot=270),
     P("C1", "470uF 16V", "CP", "CP_Radial_D8_P3.5",
-      {"1": "+5V", "2": "GND"}, x_mm=19, y_mm=56),
+      {"1": "+5V", "2": "GND"}, lcsc="C432444", x_mm=19, y_mm=56),
     P("C2", "100nF", "C", "C_Disc_P5.0",
-      {"1": "+5V", "2": "GND"}, x_mm=11, y_mm=56),
+      {"1": "+5V", "2": "GND"}, lcsc="C41469", x_mm=11, y_mm=56),
 
     # ---- brain --------------------------------------------------------------
     P("U1", "ESP32-DevKit-V1-30pin", "ESP32_DevKit_30pin", "ESP32_DevKit_30pin",
-      _devkit_pins(), x_mm=BOARD_W_MM / 2, y_mm=BOARD_H_MM / 2),
+      _devkit_pins(), lcsc="C2897384", x_mm=BOARD_W_MM / 2, y_mm=BOARD_H_MM / 2),
 
     # ---- servo headers: 1 GND, 2 +5V, 3 signal ------------------------------
     P("J_SERVO_IN", "SERVO-IN", "Conn_01x03", "PinHeader_1x03_P2.54",
-      {"1": "GND", "2": "+5V", "3": "SERVO_IN"}, x_mm=13, y_mm=65, rot=90),
+      {"1": "GND", "2": "+5V", "3": "SERVO_IN"}, lcsc="C371718", x_mm=13, y_mm=65, rot=90),
     P("J_SERVO_OUT", "SERVO-OUT", "Conn_01x03", "PinHeader_1x03_P2.54",
-      {"1": "GND", "2": "+5V", "3": "SERVO_OUT"}, x_mm=25, y_mm=65, rot=90),
+      {"1": "GND", "2": "+5V", "3": "SERVO_OUT"}, lcsc="C371718", x_mm=25, y_mm=65, rot=90),
 
     # ---- QR readers: 1 +5V, 2 GND, 3 reader TX, 4 reader RX -----------------
     P("J_QR_IN", "QR-IN", "Conn_01x04", "PinHeader_1x04_P2.54",
       {"1": "+5V", "2": "GND", "3": "QR_IN_TX_R", "4": "QR_IN_RX_R"},
-      x_mm=22, y_mm=24),
+      lcsc="C371719", x_mm=22, y_mm=24),
     P("J_QR_OUT", "QR-OUT", "Conn_01x04", "PinHeader_1x04_P2.54",
       {"1": "+5V", "2": "GND", "3": "QR_OUT_TX_R", "4": "QR_OUT_RX_R"},
-      x_mm=22, y_mm=38),
+      lcsc="C371719", x_mm=22, y_mm=38),
 
     # ---- QR series resistors (1k) + optional DNP dividers (2k) ---------------
     # reader TX -> R1 -> ESP RX (GPIO16);  ESP TX (GPIO17) -> R2 -> reader RX
     P("R1", "1k", "R", "R_Axial_P7.62",
-      {"1": "QR_IN_TX_R", "2": "QR_IN_RX"}, x_mm=34, y_mm=24),
+      {"1": "QR_IN_TX_R", "2": "QR_IN_RX"}, lcsc="C15849", x_mm=34, y_mm=24),
     P("R2", "1k", "R", "R_Axial_P7.62",
-      {"1": "QR_IN_TX", "2": "QR_IN_RX_R"}, x_mm=34, y_mm=30),
+      {"1": "QR_IN_TX", "2": "QR_IN_RX_R"}, lcsc="C15849", x_mm=34, y_mm=30),
     P("R3", "1k", "R", "R_Axial_P7.62",
-      {"1": "QR_OUT_TX_R", "2": "QR_OUT_RX"}, x_mm=46, y_mm=24),
+      {"1": "QR_OUT_TX_R", "2": "QR_OUT_RX"}, lcsc="C15849", x_mm=46, y_mm=24),
     P("R4", "1k", "R", "R_Axial_P7.62",
-      {"1": "QR_OUT_TX", "2": "QR_OUT_RX_R"}, x_mm=46, y_mm=30),
+      {"1": "QR_OUT_TX", "2": "QR_OUT_RX_R"}, lcsc="C15849", x_mm=46, y_mm=30),
     # fit R5/R6 ONLY if the reader's TX is 5 V: ESP RX node -> 2k -> GND
     P("R5", "2k DNP", "R", "R_Axial_P7.62",
-      {"1": "QR_IN_RX", "2": "GND"}, x_mm=34, y_mm=36),
+      {"1": "QR_IN_RX", "2": "GND"}, lcsc="C58611", x_mm=34, y_mm=36),
     P("R6", "2k DNP", "R", "R_Axial_P7.62",
-      {"1": "QR_OUT_RX", "2": "GND"}, x_mm=46, y_mm=36),
+      {"1": "QR_OUT_RX", "2": "GND"}, lcsc="C58611", x_mm=46, y_mm=36),
 
     # ---- IR slot sensors (3V3 so OUT never exceeds 3.3 V): 1 3V3, 2 GND, 3 OUT
     P("J_SLOT1", "SLOT1", "Conn_01x03", "PinHeader_1x03_P2.54",
-      {"1": "+3V3", "2": "GND", "3": "SLOT1"}, x_mm=75, y_mm=11),
+      {"1": "+3V3", "2": "GND", "3": "SLOT1"}, lcsc="C371718", x_mm=75, y_mm=11),
     P("J_SLOT2", "SLOT2", "Conn_01x03", "PinHeader_1x03_P2.54",
-      {"1": "+3V3", "2": "GND", "3": "SLOT2"}, x_mm=75, y_mm=23),
+      {"1": "+3V3", "2": "GND", "3": "SLOT2"}, lcsc="C371718", x_mm=75, y_mm=23),
     P("J_SLOT3", "SLOT3", "Conn_01x03", "PinHeader_1x03_P2.54",
-      {"1": "+3V3", "2": "GND", "3": "SLOT3"}, x_mm=75, y_mm=35),
+      {"1": "+3V3", "2": "GND", "3": "SLOT3"}, lcsc="C371718", x_mm=75, y_mm=35),
     P("J_SLOT4", "SLOT4", "Conn_01x03", "PinHeader_1x03_P2.54",
-      {"1": "+3V3", "2": "GND", "3": "SLOT4"}, x_mm=75, y_mm=47),
+      {"1": "+3V3", "2": "GND", "3": "SLOT4"}, lcsc="C371718", x_mm=75, y_mm=47),
 
     # ---- indicators: LED pin 1 = cathode (K), pin 2 = anode (A) --------------
     P("R7", "330", "R", "R_Axial_P7.62",
-      {"1": "LED_G", "2": "LED_G_A"}, x_mm=67, y_mm=12, rot=90),
+      {"1": "LED_G", "2": "LED_G_A"}, lcsc="C58682", x_mm=67, y_mm=12, rot=90),
     P("LED1", "LED Green", "LED", "LED_D5.0",
-      {"1": "GND", "2": "LED_G_A"}, x_mm=60, y_mm=12),
+      {"1": "GND", "2": "LED_G_A"}, lcsc="C72044", x_mm=60, y_mm=12),
     P("R8", "330", "R", "R_Axial_P7.62",
-      {"1": "LED_R", "2": "LED_R_A"}, x_mm=67, y_mm=24, rot=90),
+      {"1": "LED_R", "2": "LED_R_A"}, lcsc="C58682", x_mm=67, y_mm=24, rot=90),
     P("LED2", "LED Red", "LED", "LED_D5.0",
-      {"1": "GND", "2": "LED_R_A"}, x_mm=60, y_mm=24),
+      {"1": "GND", "2": "LED_R_A"}, lcsc="C72043", x_mm=60, y_mm=24),
     P("R9", "330", "R", "R_Axial_P7.62",
-      {"1": "+5V", "2": "PWR_LED_A"}, x_mm=67, y_mm=36, rot=90),
+      {"1": "+5V", "2": "PWR_LED_A"}, lcsc="C58682", x_mm=67, y_mm=36, rot=90),
     P("LED3", "LED Power", "LED", "LED_D5.0",
-      {"1": "GND", "2": "PWR_LED_A"}, x_mm=60, y_mm=36),
+      {"1": "GND", "2": "PWR_LED_A"}, lcsc="C72041", x_mm=60, y_mm=36),
 
     # ---- buzzer: GPIO4 -> 1k -> S8050 base; buzzer on +5V, flyback 1N4148 ----
     P("R10", "1k", "R", "R_Axial_P7.62",
-      {"1": "BUZZER", "2": "BUZ_B"}, x_mm=71, y_mm=58, rot=90),
+      {"1": "BUZZER", "2": "BUZ_B"}, lcsc="C15849", x_mm=71, y_mm=58, rot=90),
     P("Q1", "S8050", "Q_NPN_EBC", "TO-92_Inline",       # 1 E, 2 B, 3 C
-      {"1": "GND", "2": "BUZ_B", "3": "BUZ_C"}, x_mm=64, y_mm=61),
+      {"1": "GND", "2": "BUZ_B", "3": "BUZ_C"}, lcsc="C2931492", x_mm=64, y_mm=61),
     P("D2", "1N4148", "Diode", "D_DO-35_P7.62",         # cathode on +5V
-      {"1": "BUZ_C", "2": "+5V"}, x_mm=58, y_mm=58, rot=90),
+      {"1": "BUZ_C", "2": "+5V"}, lcsc="C85057", x_mm=58, y_mm=58, rot=90),
     P("BZ1", "Active buzzer 5V", "Buzzer", "Buzzer_12x9.5",
-      {"1": "+5V", "2": "BUZ_C"}, x_mm=64, y_mm=48),
+      {"1": "+5V", "2": "BUZ_C"}, lcsc="C92095", x_mm=64, y_mm=48),
 
     # ---- mounting holes -------------------------------------------------------
     P("H1", "M3", "MountingHole", "MountingHole_3.2mm", x_mm=5, y_mm=5),
