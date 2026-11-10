@@ -33,13 +33,14 @@ def _axial(half, size, drill):
 
 def _devkit():
     pads = []
-    for i in range(15):
-        y = round(-17.78 + i * PITCH, 3)
+    # ESP32-DevKitC: 2 x 19 pins; pin 1 faces pin 20 at the antenna end
+    for i in range(19):
+        y = round(-22.86 + i * PITCH, 3)
         pads.append(Pad(str(i + 1), -12.7, y, 1.7, 1.7, 1.0,
                         "rect" if i == 0 else "circle"))
-    for i in range(15):
-        y = round(-17.78 + i * PITCH, 3)
-        pads.append(Pad(str(i + 16), 12.7, y, 1.7, 1.7, 1.0, "circle"))
+    for i in range(19):
+        y = round(-22.86 + i * PITCH, 3)
+        pads.append(Pad(str(i + 20), 12.7, y, 1.7, 1.7, 1.0, "circle"))
     return pads
 
 
@@ -93,10 +94,10 @@ def _build():
     fp["C_Disc_P5.0"] = (
         _axial(2.5, 1.6, 0.8),
         _rect(-3.5, -1.6, 3.5, 1.6))
-    fp["ESP32_DevKit_30pin"] = (
+    fp["ESP32_DevKitC_38pin"] = (
         devkit,
-        _rect(-14.4, -25.75, 14.4, 25.75) + _rect(-5.0, 20.0, 5.0, 25.75)
-        + _rect(-9.0, -25.75, 9.0, -18.5))
+        _rect(-14.0, -27.2, 14.0, 27.2) + _rect(-5.0, 21.5, 5.0, 27.2)
+        + _rect(-9.0, -27.2, 9.0, -24.0))
     fp["PinHeader_1x03_P2.54"] = (_hdr(3), _hdr_gfx(3))
     fp["PinHeader_1x04_P2.54"] = (_hdr(4), _hdr_gfx(4))
     fp["R_Axial_P7.62"] = (

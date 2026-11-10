@@ -130,13 +130,15 @@ class PcbTests(unittest.TestCase):
             self.assertLessEqual(math.hypot(c1.x_mm - cx, c1.y_mm - cy), 15, hdr)
 
     def test_devkit_pitch(self):
-        pads = {pd.num: pd for pd in footprints.pads("ESP32_DevKit_30pin")}
-        self.assertEqual(len(pads), 30)
-        self.assertAlmostEqual(pads["16"].x - pads["1"].x, design.DEVKIT_ROW_PITCH_MM)
-        self.assertAlmostEqual(pads["30"].x - pads["15"].x, design.DEVKIT_ROW_PITCH_MM)
+        pads = {pd.num: pd for pd in footprints.pads("ESP32_DevKitC_38pin")}
+        self.assertEqual(len(pads), 38)
+        # pin 1 (3V3) faces pin 20 (GND) across the module, both at the antenna end
+        self.assertAlmostEqual(pads["20"].x - pads["1"].x, design.DEVKIT_ROW_PITCH_MM)
+        self.assertAlmostEqual(pads["20"].y, pads["1"].y)
+        self.assertAlmostEqual(pads["38"].x - pads["19"].x, design.DEVKIT_ROW_PITCH_MM)
         self.assertAlmostEqual(pads["2"].y - pads["1"].y, 2.54)
         placed = {pd.num: pd for r, pd, _ in emit_pcb.placed_pads() if r == "U1"}
-        self.assertAlmostEqual(placed["16"].x - placed["1"].x, design.DEVKIT_ROW_PITCH_MM)
+        self.assertAlmostEqual(placed["20"].x - placed["1"].x, design.DEVKIT_ROW_PITCH_MM)
 
     def test_net_classes(self):
         classes = {c[1]: c for c in children(TREE, "net_class")}
@@ -181,7 +183,7 @@ class PcbTests(unittest.TestCase):
 
     def test_usb_keepout_free_of_pads(self):
         u1 = part("U1")
-        bottom = u1.y_mm + 25.75                      # USB end faces +y
+        bottom = u1.y_mm + 27.2                       # USB end faces +y
         zone = (u1.x_mm - 6.5, bottom - 1.0, u1.x_mm + 6.5, design.BOARD_H_MM)
         for ref, pad, _net in emit_pcb.placed_pads():
             if ref == "U1":

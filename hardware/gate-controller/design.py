@@ -13,8 +13,8 @@ Conventions
     or "" is deliberately unconnected ("no net"); NETS() never lists it.
   * PCB placement: x_mm, y_mm = footprint origin, in mm on an 80 x 70 mm
     board, origin top-left, y down.  Origin of each footprint:
-      ESP32_DevKit_30pin  centre of the two pin rows (rows run along Y,
-                          pin 1 top-left, pins 1-15 left row, 16-30 right)
+      ESP32_DevKitC_38pin centre of the two pin rows (rows run along Y,
+                          pin 1 top-left, pins 1-19 left row, 20-38 right)
       PinHeader_*         pin 1 (further pins go +2.54 mm along the part's
                           local +Y: downward at rot 0, rightward (+X)
                           at rot 90)
@@ -39,7 +39,7 @@ EASYEDA_FOOTPRINT_MAP = {
     "D_DO-201AD": "DO-201AD",
     "CP_Radial_D8_P3.5": "C0812",
     "C_Disc_P5.0": "RAD-0.2",
-    "ESP32_DevKit_30pin": "ESP32",
+    "ESP32_DevKitC_38pin": "BULETM-SMD_ESP32-DEVKITC",
     "PinHeader_1x03_P2.54": "SIP-3",
     "PinHeader_1x04_P2.54": "SIP-4",
     "R_Axial_P7.62": "AXIAL-0.3",
@@ -65,19 +65,23 @@ GPIO_MAP = {
 # --------------------------------------------------------------------------
 Symbol = namedtuple("Symbol", "prefix pins right")
 
-# ESP32 DevKit V1 (DOIT) 30-pin, pin numbers in DOIT order.
+# Espressif ESP32-DevKitC-32E (WROOM-32E), LCSC C19183942, 38 pins numbered
+# as the LCSC/EasyEDA part: 1-19 = header J2 (antenna end -> USB end),
+# 20-38 = header J3.  Pin 1 (3V3) faces pin 20 (GND).  Not the -VE variant:
+# its WROVER module reserves GPIO16/17 for PSRAM.
 DEVKIT_PINS = [
-    # left row, top -> bottom
-    ("1", "EN"), ("2", "GPIO36(VP)"), ("3", "GPIO39(VN)"), ("4", "GPIO34"),
-    ("5", "GPIO35"), ("6", "GPIO32"), ("7", "GPIO33"), ("8", "GPIO25"),
-    ("9", "GPIO26"), ("10", "GPIO27"), ("11", "GPIO14"), ("12", "GPIO12"),
-    ("13", "GPIO13"), ("14", "GND"), ("15", "VIN"),
-    # right row, top -> bottom
-    ("16", "GPIO23"), ("17", "GPIO22"), ("18", "GPIO1(TX0)"),
-    ("19", "GPIO3(RX0)"), ("20", "GPIO21"), ("21", "GPIO19"),
-    ("22", "GPIO18"), ("23", "GPIO5"), ("24", "GPIO17(TX2)"),
-    ("25", "GPIO16(RX2)"), ("26", "GPIO4"), ("27", "GPIO2"),
-    ("28", "GPIO15"), ("29", "GND"), ("30", "3V3"),
+    # left row (J2), top -> bottom
+    ("1", "3V3"), ("2", "EN"), ("3", "GPIO36(VP)"), ("4", "GPIO39(VN)"),
+    ("5", "GPIO34"), ("6", "GPIO35"), ("7", "GPIO32"), ("8", "GPIO33"),
+    ("9", "GPIO25"), ("10", "GPIO26"), ("11", "GPIO27"), ("12", "GPIO14"),
+    ("13", "GPIO12"), ("14", "GND"), ("15", "GPIO13"), ("16", "SD2"),
+    ("17", "SD3"), ("18", "CMD"), ("19", "5V"),
+    # right row (J3), top -> bottom
+    ("20", "GND"), ("21", "GPIO23"), ("22", "GPIO22"), ("23", "GPIO1(TX)"),
+    ("24", "GPIO3(RX)"), ("25", "GPIO21"), ("26", "GND"), ("27", "GPIO19"),
+    ("28", "GPIO18"), ("29", "GPIO5"), ("30", "GPIO17"), ("31", "GPIO16"),
+    ("32", "GPIO4"), ("33", "GPIO0"), ("34", "GPIO2"), ("35", "GPIO15"),
+    ("36", "SD1"), ("37", "SD0"), ("38", "CLK"),
 ]
 
 
@@ -99,8 +103,8 @@ SYMBOLS = {
     "Diode": Symbol("D", _pins("A", "K"), {"2"}),
     "CP": Symbol("C", _pins("+", "-"), {"2"}),
     "C": Symbol("C", _pins("1", "2"), {"2"}),
-    "ESP32_DevKit_30pin": Symbol("U", DEVKIT_PINS,
-                                 {str(i) for i in range(16, 31)}),
+    "ESP32_DevKitC_38pin": Symbol("U", DEVKIT_PINS,
+                                  {str(i) for i in range(20, 39)}),
     "Conn_01x03": Symbol("J", _pins("1", "2", "3"), set()),
     "Conn_01x04": Symbol("J", _pins("1", "2", "3", "4"), set()),
     "R": Symbol("R", _pins("1", "2"), {"2"}),
@@ -127,10 +131,10 @@ class Part:
 def _devkit_pins():
     """U1 pin -> net, built from GPIO_MAP plus power; all else has no net."""
     pins = {devkit_pin(gpio): sig for sig, gpio in GPIO_MAP.items()}
-    pins["15"] = "+5V"    # VIN: DevKit's own regulator makes 3.3 V from this
-    pins["30"] = "+3V3"   # 3V3 output feeds the IR sensors
-    pins["14"] = "GND"
-    pins["29"] = "GND"
+    pins["19"] = "+5V"    # 5V: DevKit's own regulator makes 3.3 V from this
+    pins["1"] = "+3V3"    # 3V3 output feeds the IR sensors
+    for gnd in ("14", "20", "26"):
+        pins[gnd] = "GND"
     return pins
 
 
@@ -158,8 +162,8 @@ PARTS = [
       {"1": "+5V", "2": "GND"}, lcsc="C41469", x_mm=11, y_mm=56),
 
     # ---- brain --------------------------------------------------------------
-    P("U1", "ESP32-DevKit-V1-30pin", "ESP32_DevKit_30pin", "ESP32_DevKit_30pin",
-      _devkit_pins(), lcsc="C2897384", x_mm=BOARD_W_MM / 2, y_mm=BOARD_H_MM / 2),
+    P("U1", "ESP32-DevKitC-32E", "ESP32_DevKitC_38pin", "ESP32_DevKitC_38pin",
+      _devkit_pins(), lcsc="C19183942", x_mm=BOARD_W_MM / 2, y_mm=BOARD_H_MM / 2),
 
     # ---- servo headers: 1 GND, 2 +5V, 3 signal ------------------------------
     P("J_SERVO_IN", "SERVO-IN", "Conn_01x03", "PinHeader_1x03_P2.54",

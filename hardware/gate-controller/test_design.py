@@ -20,7 +20,7 @@ EXPECTED_GPIO = {"QR_IN_RX": 16, "QR_IN_TX": 17, "QR_OUT_RX": 32, "QR_OUT_TX": 3
 
 ALLOWED_FOOTPRINTS = {
     "DC_Jack_5.5x2.1", "Fuse_PTC_TH", "D_DO-201AD", "CP_Radial_D8_P3.5",
-    "C_Disc_P5.0", "ESP32_DevKit_30pin", "PinHeader_1x03_P2.54",
+    "C_Disc_P5.0", "ESP32_DevKitC_38pin", "PinHeader_1x03_P2.54",
     "PinHeader_1x04_P2.54", "R_Axial_P7.62", "LED_D5.0", "TO-92_Inline",
     "D_DO-35_P7.62", "Buzzer_12x9.5", "MountingHole_3.2mm"}
 
@@ -42,18 +42,26 @@ class DesignTests(unittest.TestCase):
             self.assertIsNotNone(pin, "no DevKit pin for GPIO%d" % gpio)
             self.assertEqual(u1.pins.get(pin), sig, "GPIO%d" % gpio)
 
-    def test_devkit_is_one_30_pin_part(self):
+    def test_devkit_is_one_38_pin_lcsc_part(self):
+        # ESP32-DevKitC-32E (WROOM-32E, LCSC C19183942).  Not the -VE: its
+        # WROVER module uses GPIO16/17 for PSRAM, and QR-IN needs them.
         u1 = part("U1")
-        self.assertEqual(u1.value, "ESP32-DevKit-V1-30pin")
-        self.assertEqual(u1.footprint, "ESP32_DevKit_30pin")
-        self.assertEqual(len(design.DEVKIT_PINS), 30)
+        self.assertEqual(u1.value, "ESP32-DevKitC-32E")
+        self.assertEqual(u1.footprint, "ESP32_DevKitC_38pin")
+        self.assertEqual(u1.lcsc, "C19183942")
+        self.assertEqual(len(design.DEVKIT_PINS), 38)
         self.assertEqual([n for n, _ in design.DEVKIT_PINS],
-                         [str(i) for i in range(1, 31)])
-        self.assertEqual(design.DEVKIT_PINS[0][1], "EN")
-        self.assertEqual(design.DEVKIT_PINS[14][1], "VIN")
-        self.assertEqual(design.DEVKIT_PINS[29][1], "3V3")
-        self.assertEqual(design.DEVKIT_PINS[15][1], "GPIO23")
+                         [str(i) for i in range(1, 39)])
+        self.assertEqual(design.DEVKIT_PINS[0][1], "3V3")
+        self.assertEqual(design.DEVKIT_PINS[18][1], "5V")
+        self.assertEqual(design.DEVKIT_PINS[19][1], "GND")
+        self.assertEqual(design.DEVKIT_PINS[20][1], "GPIO23")
         self.assertEqual(design.DEVKIT_ROW_PITCH_MM, 25.4)
+
+    def test_devkit_power_pins(self):
+        self.assertEqual(net_of("U1", "19"), "+5V")
+        for pin in ("14", "20", "26"):
+            self.assertEqual(net_of("U1", pin), "GND", pin)
 
     def test_no_strapping_pins(self):
         u1 = part("U1")
@@ -106,7 +114,7 @@ class DesignTests(unittest.TestCase):
             self.assertEqual(net_of(hdr, "1"), "+3V3")
             self.assertEqual(net_of(hdr, "2"), "GND")
             self.assertEqual(net_of(hdr, "3"), "SLOT%d" % i)
-        self.assertEqual(net_of("U1", "30"), "+3V3")
+        self.assertEqual(net_of("U1", "1"), "+3V3")
 
     def test_servos_on_5v(self):
         for hdr, sig in (("J_SERVO_IN", "SERVO_IN"), ("J_SERVO_OUT", "SERVO_OUT")):
@@ -122,9 +130,9 @@ class DesignTests(unittest.TestCase):
         self.assertEqual(net_of("F1", "2"), "VIN_FUSED")
         self.assertEqual(net_of("D1", "1"), "VIN_FUSED")
         self.assertEqual(net_of("D1", "2"), "+5V")
-        self.assertEqual(net_of("U1", "15"), "+5V")
+        self.assertEqual(net_of("U1", "19"), "+5V")
         self.assertEqual(net_of("U1", "14"), "GND")
-        self.assertEqual(net_of("U1", "29"), "GND")
+        self.assertEqual(net_of("U1", "20"), "GND")
         self.assertEqual(net_of("C1", "1"), "+5V")
         self.assertEqual(net_of("C1", "2"), "GND")
 
