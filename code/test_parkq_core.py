@@ -25,6 +25,26 @@ class TestValidation(unittest.TestCase):
         # Assert
         self.assertEqual(results, [False, False, False, False])
 
+    def test_UT20_valid_email(self):
+        # Arrange
+        good = ["somchai@example.com", "a.b+c@mail.sripatum.ac.th"]
+        # Act
+        results = [core.is_valid_email(e) for e in good]
+        # Assert
+        self.assertEqual(results, [True, True])
+
+    def test_UT21_invalid_email(self):
+        # Arrange
+        bad = ["", "no-at-sign.com", "a@b", "a b@c.com", "@c.com", "a@.com", "a@c..com"]
+        # Act
+        results = [core.is_valid_email(e) for e in bad]
+        # Assert
+        self.assertEqual(results, [False] * len(bad))
+
+    def test_UT22_email_normalised(self):
+        # Arrange / Act / Assert
+        self.assertEqual(core.normalize_email("  SomChai@Example.COM "), "somchai@example.com")
+
     def test_UT03_thai_plate(self):
         # Arrange
         good, bad = ["กข 1234", "1กข 1234", "ก1"], ["ABC 1234", "กข", "กข 12345"]

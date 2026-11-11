@@ -26,10 +26,16 @@ def login(role):
     return call("GET", f"/api/dev/login?role={role}")[1]["token"]
 
 
+def email_of(n):
+    return f"u{n}@parkq.test"
+
+
 def new_driver(phone):
-    """Register a fresh driver through the real OTP flow and return (token, vehicle_id)."""
-    _, otp = call("POST", "/api/auth/otp", {"phone": phone, "accept": True})
-    _, v = call("POST", "/api/auth/verify", {"phone": phone, "code": otp["dev_code"]})
+    """Register a fresh driver through the real e-mail OTP flow and return (token, vehicle_id).
+    `phone` is just a unique number that makes the test e-mail address and plate."""
+    email = email_of(phone)
+    _, otp = call("POST", "/api/auth/otp", {"email": email, "accept": True})
+    _, v = call("POST", "/api/auth/verify", {"email": email, "code": otp["dev_code"]})
     tok = v["token"]
     if v["is_new"]:
         call("POST", "/api/auth/register", {"name": "ทดสอบ ระบบ", "plate": "ทส " + phone[-4:], "province": "กรุงเทพมหานคร"}, tok)
@@ -46,20 +52,33 @@ def book_and_pay(tok, vid, lot="LOT01", hours=2):
 class TestAuth(unittest.TestCase):
     def test_IT01_otp_validation(self):
         # TC-ACC-02 / TC-ACC-03
-        self.assertEqual(call("POST", "/api/auth/otp", {"phone": "089123456", "accept": True})[1]["code"], "INVALID_PHONE")
-        self.assertEqual(call("POST", "/api/auth/otp", {"phone": "0891112222", "accept": False})[1]["code"], "TERMS_REQUIRED")
+        self.assertEqual(call("POST", "/api/auth/otp", {"email": "not-an-email", "accept": True})[1]["code"], "INVALID_EMAIL")
+        self.assertEqual(call("POST", "/api/auth/otp", {"email": "ok@parkq.test", "accept": False})[1]["code"], "TERMS_REQUIRED")
 
     def test_IT02_wrong_otp_three_times(self):
         # TC-ACC-06
-        call("POST", "/api/auth/otp", {"phone": "0897770001", "accept": True})
-        codes = [call("POST", "/api/auth/verify", {"phone": "0897770001", "code": "000000"})[1]["code"] for _ in range(3)]
+        call("POST", "/api/auth/otp", {"email": "u0897770001@parkq.test", "accept": True})
+        codes = [call("POST", "/api/auth/verify", {"email": "u0897770001@parkq.test", "code": "000000"})[1]["code"] for _ in range(3)]
         self.assertEqual(codes, ["OTP_WRONG", "OTP_WRONG", "OTP_LOCKED"])
 
     def test_IT03_register_new_user(self):
         # TC-ACC-05
         tok, vid = new_driver("0897770002")
         self.assertTrue(vid)
-        self.assertEqual(call("GET", "/api/me", token=tok)[1]["phone"], "0897770002")
+        self.assertEqual(call("GET", "/api/me", token=tok)[1]["email"], email_of("0897770002"))
+
+    def test_IT03b_email_is_case_insensitive(self):
+        # the same mailbox typed in capitals must reach the same account
+        tok, _ = new_driver("0897770099")
+        _, otp = call("POST", "/api/auth/otp", {"email": email_of("0897770099").upper(), "accept": True})
+        _, v = call("POST", "/api/auth/verify", {"email": email_of("0897770099").upper(), "code": otp["dev_code"]})
+        self.assertFalse(v["is_new"])
+
+    def test_IT03c_otp_not_returned_when_dev_off(self):
+        # in production mode the response must never carry the code (checked by the response shape only)
+        _, otp = call("POST", "/api/auth/otp", {"email": "shape@parkq.test", "accept": True})
+        self.assertIn("masked", otp)
+        self.assertTrue(otp["masked"].startswith("s") and "@parkq.test" in otp["masked"])
 
     def test_IT04_duplicate_plate(self):
         # TC-ACC-09

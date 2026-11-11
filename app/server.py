@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "code"))
 import parkq_core as core  # noqa: E402
 
 import db  # noqa: E402
+import mailer  # noqa: E402
 
 SECRET = os.environ.get("PARKQ_SECRET", "parkq-dev-secret").encode()
 DEV_MODE = os.environ.get("PARKQ_DEV", "1") == "1"      # shows OTP on screen and enables simulated payments
@@ -30,6 +31,7 @@ PUBLIC = os.environ.get("PARKQ_PUBLIC") == "1"            # public demo site: no
 PROMPTPAY_ID = os.environ.get("PARKQ_PROMPTPAY_ID")      # unset -> demo QR that no bank app can pay
 HOLD_SECONDS = 10 * 60
 OTP_TTL = 5 * 60
+MAIL = mailer.config_from_env(os.environ)           # SMTP settings; unset -> OTP shown on screen in dev mode
 BKK = timezone(timedelta(hours=7))
 STATIC = Path(__file__).resolve().parent / "static"
 
@@ -149,54 +151,69 @@ def lot_detail(lot_id: str, conn=Depends(get_db)):
 # ---------------------------------------------------------------- auth (ACC_01)
 
 class OtpIn(BaseModel):
-    phone: str
+    email: str
     accept: bool = False
 
 
 class VerifyIn(BaseModel):
-    phone: str
+    email: str
     code: str
+
+
+def mask_email(email: str) -> str:
+    name, _, domain = email.partition("@")
+    return f"{name[:1]}{'*' * max(2, len(name) - 1)}@{domain}"
 
 
 @app.post("/api/auth/otp")
 def request_otp(body: OtpIn, conn=Depends(get_db)):
-    if not core.is_valid_phone(body.phone):
-        raise ApiError(400, "INVALID_PHONE", "กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง")
+    email = core.normalize_email(body.email)
+    if not core.is_valid_email(email):
+        raise ApiError(400, "INVALID_EMAIL", "กรุณากรอกอีเมลให้ถูกต้อง")
     if not body.accept:
         raise ApiError(400, "TERMS_REQUIRED", "กรุณายอมรับเงื่อนไขและนโยบายความเป็นส่วนตัว")
-    recent = conn.execute("SELECT COUNT(*) FROM otps WHERE phone=? AND created_at > ?",
-                          (body.phone, now() - 600)).fetchone()[0]
+    recent = conn.execute("SELECT COUNT(*) FROM otps WHERE email=? AND created_at > ?",
+                          (email, now() - 600)).fetchone()[0]
     if recent >= 5:
         raise ApiError(429, "OTP_RATE_LIMIT", "ขอ OTP เกินจำนวนครั้งที่กำหนด กรุณาลองใหม่ภายหลัง")
-    conn.execute("UPDATE otps SET used=1 WHERE phone=? AND used=0", (body.phone,))
+    conn.execute("UPDATE otps SET used=1 WHERE email=? AND used=0", (email,))
     code = f"{secrets.randbelow(10 ** 6):06d}"
-    conn.execute("INSERT INTO otps(phone,code,created_at,expires_at) VALUES (?,?,?,?)",
-                 (body.phone, code, now(), now() + OTP_TTL))
-    # Production: send `code` through the SMS gateway here.
-    res = {"sent": True, "expires_in": OTP_TTL, "masked": f"{body.phone[:3]}-xxx-{body.phone[-4:]}"}
-    if DEV_MODE:
-        res["dev_code"] = code
+    conn.execute("INSERT INTO otps(email,code,created_at,expires_at) VALUES (?,?,?,?)",
+                 (email, code, now(), now() + OTP_TTL))
+    res = {"sent": True, "expires_in": OTP_TTL, "masked": mask_email(email)}
+    if mailer.is_configured(MAIL):
+        try:
+            mailer.send_otp(email, code, OTP_TTL // 60, MAIL)
+        except mailer.MailError:
+            conn.execute("UPDATE otps SET used=1 WHERE email=? AND used=0", (email,))
+            raise ApiError(502, "MAIL_FAILED", "ส่งอีเมลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง")
+        res["via"] = "email"
+    elif not DEV_MODE:
+        raise ApiError(503, "MAIL_NOT_CONFIGURED", "ระบบยังไม่ได้ตั้งค่าการส่งอีเมล")
+    else:
+        res["dev_code"] = code      # no SMTP account configured: demo mode shows the code on screen
     return res
 
 
 @app.post("/api/auth/verify")
 def verify_otp(body: VerifyIn, conn=Depends(get_db)):
-    otp = conn.execute("SELECT * FROM otps WHERE phone=? AND used=0 ORDER BY id DESC LIMIT 1", (body.phone,)).fetchone()
+    email = core.normalize_email(body.email)
+    otp = conn.execute("SELECT * FROM otps WHERE email=? AND used=0 ORDER BY id DESC LIMIT 1", (email,)).fetchone()
     if not otp:
         raise ApiError(400, "OTP_NOT_FOUND", "กรุณาขอรหัส OTP ใหม่")
     if otp["expires_at"] < now():
         raise ApiError(400, "OTP_EXPIRED", "รหัส OTP หมดอายุ กรุณาขอใหม่")
-    if body.code != otp["code"]:
+    if not secrets.compare_digest(body.code, otp["code"]):
         attempts = otp["attempts"] + 1
         conn.execute("UPDATE otps SET attempts=?, used=? WHERE id=?", (attempts, int(attempts >= 3), otp["id"]))
         if attempts >= 3:
             raise ApiError(400, "OTP_LOCKED", "กรอกรหัสผิดครบ 3 ครั้ง กรุณาขอรหัสใหม่")
         raise ApiError(400, "OTP_WRONG", f"รหัส OTP ไม่ถูกต้อง (เหลือ {3 - attempts} ครั้ง)")
     conn.execute("UPDATE otps SET used=1 WHERE id=?", (otp["id"],))
-    user = conn.execute("SELECT * FROM users WHERE phone=?", (body.phone,)).fetchone()
+    user = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
     if not user:
-        conn.execute("INSERT INTO users(phone,created_at) VALUES (?,?)", (body.phone, now()))
-        user = conn.execute("SELECT * FROM users WHERE phone=?", (body.phone,)).fetchone()
+        conn.execute("INSERT INTO users(email,created_at) VALUES (?,?)", (email, now()))
+        user = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
     token = secrets.token_urlsafe(24)
     conn.execute("INSERT INTO sessions VALUES (?,?,?)", (token, user["id"], now()))
     return {"token": token, "is_new": not user["name"], "user": dict(user)}
@@ -204,7 +221,7 @@ def verify_otp(body: VerifyIn, conn=Depends(get_db)):
 
 class RegisterIn(BaseModel):
     name: str
-    email: str = ""
+    phone: str = ""
     plate: str
     province: str
 
@@ -213,11 +230,11 @@ class RegisterIn(BaseModel):
 def register(body: RegisterIn, user=Depends(current_user), conn=Depends(get_db)):
     if len(body.name.strip()) < 2:
         raise ApiError(400, "NAME_REQUIRED", "กรุณากรอกชื่อ")
-    if body.email and ("@" not in body.email or "." not in body.email.split("@")[-1]):
-        raise ApiError(400, "INVALID_EMAIL", "รูปแบบอีเมลไม่ถูกต้อง")
+    if body.phone and not core.is_valid_phone(body.phone):
+        raise ApiError(400, "INVALID_PHONE", "กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง")
     if not core.is_valid_plate(body.plate):
         raise ApiError(400, "INVALID_PLATE", "รูปแบบทะเบียนไม่ถูกต้อง")
-    conn.execute("UPDATE users SET name=?, email=? WHERE id=?", (body.name.strip(), body.email.strip(), user["id"]))
+    conn.execute("UPDATE users SET name=?, phone=? WHERE id=?", (body.name.strip(), body.phone.strip(), user["id"]))
     conn.execute("INSERT OR IGNORE INTO vehicles(user_id,plate,province,type,is_primary) VALUES (?,?,?,'car',1)",
                  (user["id"], body.plate.strip(), body.province))
     return {"ok": True}
@@ -252,8 +269,8 @@ def vehicles(user=Depends(current_user), conn=Depends(get_db)):
 def save_vehicle(conn, user, body: VehicleIn, vid=None):
     if not core.is_valid_plate(body.plate):
         raise ApiError(400, "INVALID_PLATE", "รูปแบบทะเบียนไม่ถูกต้อง")
-    dup = conn.execute("SELECT id FROM vehicles WHERE user_id=? AND plate=? AND id IS NOT ?",
-                       (user["id"], body.plate.strip(), vid)).fetchone()
+    dup = conn.execute("SELECT id FROM vehicles WHERE user_id=? AND plate=? AND id <> ?",
+                       (user["id"], body.plate.strip(), vid or 0)).fetchone()
     if dup:
         raise ApiError(409, "DUPLICATE_PLATE", "มีรถทะเบียนนี้ในบัญชีแล้ว")
     first = conn.execute("SELECT COUNT(*) FROM vehicles WHERE user_id=?", (user["id"],)).fetchone()[0] == 0
@@ -261,7 +278,7 @@ def save_vehicle(conn, user, body: VehicleIn, vid=None):
     if primary:
         conn.execute("UPDATE vehicles SET is_primary=0 WHERE user_id=?", (user["id"],))
     if vid:
-        conn.execute("UPDATE vehicles SET plate=?, province=?, type=?, is_primary=MAX(is_primary, ?) WHERE id=? AND user_id=?",
+        conn.execute("UPDATE vehicles SET plate=?, province=?, type=?, is_primary=CASE WHEN ?=1 THEN 1 ELSE is_primary END WHERE id=? AND user_id=?",
                      (body.plate.strip(), body.province, body.type, int(primary), vid, user["id"]))
     else:
         conn.execute("INSERT INTO vehicles(user_id,plate,province,type,is_primary) VALUES (?,?,?,?,?)",
@@ -553,7 +570,8 @@ def log(conn, lot_id, gate, tid, result, method, staff_id=None, reason=None):
 def gate_info(lot_id: str, conn=Depends(get_db)):
     lot = get_lot(conn, lot_id)
     return {"id": lot["id"], "name": lot["name"], **lot_counts(conn, lot), "capacity": lot["capacity"],
-            "online": not lot_counts(conn, lot)["stale"]}
+            "online": not lot_counts(conn, lot)["stale"], "rate": lot["rate"],
+            "open_time": lot["open_time"], "close_time": lot["close_time"]}
 
 
 @app.post("/api/gate/{lot_id}/in/scan")
@@ -794,12 +812,13 @@ def admin_dashboard(lot_id: str, user=Depends(require_role("admin")), conn=Depen
                               WHERE t.lot_id=? AND p.status='PAID' AND p.paid_at>=?""", (lot_id, day0)).fetchone()[0]
     bookings = conn.execute("SELECT COUNT(*) FROM tickets WHERE lot_id=? AND created_at>=? AND status NOT IN ('EXPIRED')",
                             (lot_id, day0)).fetchone()[0]
-    reserved_slots = {r[0] for r in conn.execute(
-        "SELECT ROWID FROM tickets WHERE lot_id=? AND status IN ('WAITING','PENDING') AND start_at<=?", (lot_id, now() + 1800))}
+    reserved_now = conn.execute(
+        "SELECT COUNT(*) FROM tickets WHERE lot_id=? AND status IN ('WAITING','PENDING') AND start_at<=?",
+        (lot_id, now() + 1800)).fetchone()[0]
     slots = [dict(r) for r in conn.execute("SELECT slot_no, zone, occupied, updated_at FROM slots WHERE lot_id=? ORDER BY slot_no", (lot_id,))]
     logs = [dict(r) for r in conn.execute("SELECT * FROM gate_logs WHERE lot_id=? ORDER BY id DESC LIMIT 20", (lot_id,))]
     return {"lot": lot_json(conn, lot), "revenue_today": revenue, "bookings_today": bookings,
-            "reserved_now": len(reserved_slots), "slots": slots, "logs": logs}
+            "reserved_now": reserved_now, "slots": slots, "logs": logs}
 
 
 @app.post("/api/admin/lots/{lot_id}/slots/{slot_no}/toggle")

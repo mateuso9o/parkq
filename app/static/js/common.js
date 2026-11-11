@@ -1,4 +1,5 @@
 // Shared helpers for every ParkQ page: API calls, formatting, toasts, modals, auth and doc annotations.
+import { icon } from "./icons.js";
 export const qs = new URLSearchParams(location.search);
 const TOKEN_KEY = "parkq_token";
 
@@ -32,6 +33,7 @@ export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&a
 export const baht = (n) => Number(n).toLocaleString("th-TH") + " บาท";
 const TZ = { timeZone: "Asia/Bangkok" };
 export const fmtTime = (ts) => new Date(ts * 1000).toLocaleTimeString("th-TH", { ...TZ, hour: "2-digit", minute: "2-digit" });
+export const hhmm = (ts) => new Date(ts * 1000).toLocaleTimeString("en-GB", { ...TZ, hour: "2-digit", minute: "2-digit" });
 export const fmtDate = (ts) => new Date(ts * 1000).toLocaleDateString("th-TH", { ...TZ, day: "numeric", month: "short" });
 export const fmtDateTime = (ts) => `${fmtDate(ts)} ${fmtTime(ts)} น.`;
 export const fmtRange = (a, b) => fmtDate(a) === fmtDate(b) ? `${fmtDate(a)} • ${fmtTime(a)}–${fmtTime(b)} น.` : `${fmtDateTime(a)} – ${fmtDateTime(b)}`;
@@ -99,3 +101,25 @@ export function startAnnotations() {
   addEventListener("resize", draw);
   setTimeout(draw, 300);
 }
+
+// ---- light / dark switch: the choice is remembered per browser; the first visit follows the device setting
+export function initTheme() {
+  const root = document.documentElement;
+  const apply = (t) => {
+    root.dataset.theme = t;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "light" ? "#ffffff" : "#1e2024");
+    btn.innerHTML = icon(t === "light" ? "moon" : "sun", 20);
+    btn.setAttribute("aria-label", t === "light" ? "สลับเป็นโหมดมืด" : "สลับเป็นโหมดสว่าง");
+    btn.title = btn.getAttribute("aria-label");
+  };
+  const btn = document.createElement("button");
+  btn.type = "button"; btn.className = "theme-fab" + (location.pathname.includes("gate") ? " wide" : "");
+  btn.addEventListener("click", () => {
+    const next = root.dataset.theme === "light" ? "dark" : "light";
+    try { localStorage.setItem("parkq_theme", next); } catch {}
+    apply(next);
+  });
+  if (qs.get("annotate") !== "1") document.body.appendChild(btn);   // documentation screenshots show only the numbered elements
+  apply(root.dataset.theme === "light" ? "light" : "dark");
+}
+initTheme();

@@ -1,5 +1,7 @@
 // ParkQ back office: lot admin (ADM_01..03) and gate attendant (TKT_04).
 import { api, getToken, setToken, devLogin, esc, baht, fmtTime, fmtDateTime, lotBadge, ticketBadge, toast, modal, fieldError, startAnnotations } from "./common.js";
+import { flapHtml, setFlap } from "./flap.js";
+import { icon } from "./icons.js";
 
 const $app = document.getElementById("app");
 let me = null, lots = [], lotId = sessionStorage.getItem("parkq_admin_lot") || "LOT01";
@@ -16,7 +18,7 @@ function shell(active, title, body, menuEl) {
   $app.innerHTML = `<div class="bo">
     <nav class="side" ${menuEl ? `data-el="${menuEl}"` : ""}><div class="logo"><span>P</span>ParkQ Admin</div>
       ${MENU.filter((m) => m[2].includes(me.role)).map(([k, t]) => `<a href="#/${k}" class="${k === active ? "on" : ""}">${t}</a>`).join("")}
-      <div class="who">${esc(me.name)}<br><span class="small">${me.role === "admin" ? "ผู้ดูแลลานจอด" : "พนักงานหน้าลาน"}</span><br><a href="#" id="logout" style="padding:6px 0;color:#93c5fd">ออกจากระบบ</a></div></nav>
+      <div class="who">${esc(me.name)}<br><span class="small">${me.role === "admin" ? "ผู้ดูแลลานจอด" : "พนักงานหน้าลาน"}</span><br><a href="#" id="logout" style="padding:6px 0;color:var(--amber)">ออกจากระบบ</a></div></nav>
     <main class="main"><div class="head"><h1>${title}</h1><div id="headRight"></div></div>${body}</main></div>`;
   $app.querySelector("#logout").addEventListener("click", async (e) => { e.preventDefault(); await api("/api/auth/logout", { method: "POST" }).catch(() => {}); setToken(null); route(); });
 }
@@ -35,20 +37,20 @@ function screenLogin() {
     <div class="row"><span class="badge blue">ParkQ Admin</span></div>
     <h1 style="font-size:22px">เข้าสู่ระบบหลังบ้าน</h1>
     <p class="muted small" style="margin:0">สำหรับผู้ดูแลลานจอดและพนักงานหน้าลาน</p>
-    <label class="field"><span class="label">เบอร์โทรศัพท์</span><input id="phone" class="input" inputmode="numeric" maxlength="10" placeholder="08x-xxx-xxxx"><div class="err"></div></label>
+    <label class="field"><span class="label">อีเมล</span><input id="phone" class="input" type="email" inputmode="email" maxlength="120" placeholder="name@example.com"><div class="err"></div></label>
     <div id="otpBox" class="hidden stack"><label class="field"><span class="label">รหัส OTP</span><input id="otp" class="input otp-input num" inputmode="numeric" maxlength="6" placeholder="••••••"><div class="err"></div></label><div id="dev"></div></div>
     <button class="btn block" id="go">ขอรหัส OTP</button>
-    <p class="small muted" style="margin:0">ทดสอบ: ผู้ดูแล 0800000001 • พนักงาน 0800000002</p></div></div>`;
+    <p class="small muted" style="margin:0">ทดสอบ: ผู้ดูแล admin@parkq.demo • พนักงาน staff@parkq.demo</p></div></div>`;
   const phone = $app.querySelector("#phone"), otp = $app.querySelector("#otp"), go = $app.querySelector("#go");
   let stage = "phone";
   go.addEventListener("click", async () => {
     try {
       if (stage === "phone") {
-        const r = await api("/api/auth/otp", { method: "POST", body: { phone: phone.value, accept: true } });
+        const r = await api("/api/auth/otp", { method: "POST", body: { email: phone.value.trim(), accept: true } });
         stage = "otp"; $app.querySelector("#otpBox").classList.remove("hidden"); go.textContent = "เข้าสู่ระบบ"; otp.focus();
         if (r.dev_code) $app.querySelector("#dev").innerHTML = `<div class="dev-box">โหมดทดสอบ: รหัสคือ <b>${r.dev_code}</b></div>`;
       } else {
-        const r = await api("/api/auth/verify", { method: "POST", body: { phone: phone.value, code: otp.value } });
+        const r = await api("/api/auth/verify", { method: "POST", body: { email: phone.value.trim(), code: otp.value } });
         if (!["admin", "attendant"].includes(r.user.role)) { toast("บัญชีนี้ไม่มีสิทธิ์เข้าระบบหลังบ้าน", true); return; }
         setToken(r.token); route();
       }
@@ -62,7 +64,7 @@ async function screenDashboard() {
     <div class="row" style="margin-bottom:16px">${lotSelect(1)}</div>
     <div class="stats" id="stats" data-el="2"></div>
     <div class="grid2">
-      <div class="card" data-el="3"><div class="row between" style="margin-bottom:12px"><h3>ผังช่องจอด (เรียลไทม์)</h3><span class="legend"><span><i style="background:#22c55e"></i>ว่าง</span><span><i style="background:#ef4444"></i>มีรถ</span></span></div>
+      <div class="card" data-el="3"><div class="row between" style="margin-bottom:12px"><h3>ผังช่องจอด (เรียลไทม์)</h3><span class="legend"><span><i style="background:var(--letter)"></i>ว่าง</span><span><i style="background:var(--amber)"></i>มีรถ</span></span></div>
         <div class="slots" id="slots"></div><p class="small muted" style="margin:12px 0 0">คลิกช่องเพื่อจำลองสัญญาณเซ็นเซอร์ (ใช้ระหว่างที่ยังไม่ได้ติดตั้งอุปกรณ์)</p></div>
       <div class="card" data-el="4"><h3 style="margin-bottom:10px">รายการเข้า-ออกล่าสุด</h3><div style="max-height:420px;overflow:auto"><table class="t" id="logs"></table></div></div>
     </div>`, 5);
@@ -71,9 +73,20 @@ async function screenDashboard() {
     let d;
     try { d = await api("/api/admin/dashboard?lot_id=" + lotId); } catch (e) { return err(e); }
     const s = $app.querySelector("#stats"); if (!s) return;
-    s.innerHTML = [["ช่องว่าง", `${d.lot.stale ? "–" : d.lot.free} <span class="small muted">/ ${d.lot.capacity}</span>`, lotBadge(d.lot.status)],
-      ["รถจอดอยู่", d.lot.occupied, ""], ["การจองวันนี้", d.bookings_today, `<span class="small muted">กันช่องไว้ ${d.lot.reserved}</span>`], ["รายได้วันนี้", baht(d.revenue_today), ""]]
-      .map(([l, v, x]) => `<div class="card stat"><div class="label">${l}</div><b class="num">${v}</b>${x}</div>`).join("");
+    const tone = d.lot.stale ? "dim" : d.lot.status === "FULL" ? "bad" : d.lot.status === "NEARLY_FULL" ? "warn" : "";
+    const freeV = d.lot.stale ? "–" : String(d.lot.free);
+    if (!s.children.length) {
+      s.innerHTML = `<div class="srow"><span class="label">ช่องว่าง</span><span id="stFree">${flapHtml(freeV, { cells: 3, tone })}</span><span class="sub"><span id="stBadge"></span> / ${d.lot.capacity} ช่อง</span></div>
+        <div class="srow"><span class="label">รถจอดอยู่</span><span id="stOcc">${flapHtml(String(d.lot.occupied), { cells: 3 })}</span><span class="sub">ช่อง</span></div>
+        <div class="srow"><span class="label">การจองวันนี้</span><span id="stBk">${flapHtml(String(d.bookings_today), { cells: 3 })}</span><span class="sub">กันช่องไว้ <span id="stRes">${d.lot.reserved}</span></span></div>
+        <div class="srow"><span class="label">รายได้วันนี้</span><b class="num" id="stRev">${baht(d.revenue_today)}</b><span class="sub"></span></div>`;
+    } else {
+      setFlap(s.querySelector("#stFree .flap"), freeV, { tone });
+      setFlap(s.querySelector("#stOcc .flap"), String(d.lot.occupied));
+      setFlap(s.querySelector("#stBk .flap"), String(d.bookings_today));
+      s.querySelector("#stRes").textContent = d.lot.reserved; s.querySelector("#stRev").textContent = baht(d.revenue_today);
+    }
+    s.querySelector("#stBadge").innerHTML = lotBadge(d.lot.status);
     $app.querySelector("#slots").innerHTML = d.slots.map((x) => `<button class="slot ${x.occupied ? "busy" : "free"}" data-n="${x.slot_no}" title="โซน ${x.zone}">${x.zone}${x.slot_no}</button>`).join("");
     $app.querySelectorAll(".slot").forEach((b) => b.addEventListener("click", async () => { await api(`/api/admin/lots/${lotId}/slots/${b.dataset.n}/toggle`, { method: "POST" }).catch(err); load(); }));
     $app.querySelector("#logs").innerHTML = `<tr><th>เวลา</th><th>ทะเบียน</th><th>ประตู</th><th>ผล</th><th>วิธี</th></tr>` +
@@ -87,7 +100,7 @@ async function screenDashboard() {
 // ------------------------------------------------------------------ ADM_01 lots
 async function screenLots(params) {
   shell("lots", "ลานจอดของฉัน", `<div class="card" style="padding:0;overflow:hidden" data-el="2"><table class="t" id="tbl"></table></div>`);
-  $app.querySelector("#headRight").innerHTML = `<button class="btn" id="add" data-el="1">+ เพิ่มลานจอด</button>`;
+  $app.querySelector("#headRight").innerHTML = `<button class="btn" id="add" data-el="1">${icon("plus", 18)} เพิ่มลานจอด</button>`;
   $app.querySelector("#add").addEventListener("click", () => lotModal());
   $app.querySelector("#tbl").innerHTML = `<tr><th>รหัส</th><th>ชื่อลานจอด</th><th>ช่องจอด</th><th>เวลาเปิด</th><th>สถานะ</th><th>อุปกรณ์ IoT</th><th>ขายออนไลน์</th><th></th></tr>` +
     lots.map((l, i) => `<tr><td>${l.id}</td><td><b>${esc(l.name)}</b><div class="small muted">${esc(l.address)}</div></td><td class="num">${l.capacity}</td>
@@ -155,7 +168,7 @@ async function screenReport() {
       <div class="field" data-el="1"><span class="label">ช่วงวันที่ <span class="req">*</span></span><div class="row"><input id="d0" type="date" class="input" value="${from}"> – <input id="d1" type="date" class="input" value="${today}"></div></div>
       <button class="btn soft" id="run">แสดงรายงาน</button><button class="btn ghost" id="csv" data-el="4">ส่งออก CSV</button></div>
     <div class="err" id="rangeErr" style="color:var(--bad);margin-bottom:8px"></div>
-    <div class="card" data-el="2"><div class="row between"><h3>รายได้รายวัน</h3><div class="legend"><span><i style="background:#1f5bff"></i>จอดเลย</span><span><i style="background:#93b4ff"></i>จองล่วงหน้า</span><span><i style="background:#f59e0b"></i>ค่าส่วนเกิน</span></div></div>
+    <div class="card" data-el="2"><div class="row between"><h3>รายได้รายวัน</h3><div class="legend"><span><i style="background:var(--letter)"></i>จอดเลย</span><span><i style="background:var(--steel-light)"></i>จองล่วงหน้า</span><span><i style="background:var(--amber)"></i>ค่าส่วนเกิน</span></div></div>
       <div class="chart" id="chart"></div><div class="xlabels" id="xl"></div></div>
     <div class="card" style="margin-top:16px;padding:0;overflow:hidden" data-el="3"><table class="t" id="tbl"></table></div>`);
   bindLotSelect();
@@ -165,11 +178,11 @@ async function screenReport() {
     try { r = await api(q()); } catch (e) { $app.querySelector("#rangeErr").textContent = e.message; return; }
     const max = Math.max(1, ...r.days.map((d) => d.revenue));
     $app.querySelector("#chart").innerHTML = r.days.map((d) => `<div class="col" data-tip="${d.date}: ${baht(d.revenue)}">
-      <i style="height:${d.now / max * 200}px;background:#1f5bff"></i><i style="height:${d.advance / max * 200}px;background:#93b4ff"></i><i style="height:${d.overstay / max * 200}px;background:#f59e0b;border-radius:4px 4px 0 0"></i></div>`).join("");
+      <i style="height:${d.now / max * 200}px;background:var(--letter)"></i><i style="height:${d.advance / max * 200}px;background:var(--steel-light)"></i><i style="height:${d.overstay / max * 200}px;background:var(--amber);border-radius:4px 4px 0 0"></i></div>`).join("");
     $app.querySelector("#xl").innerHTML = r.days.map((d) => `<span>${+d.date.slice(8)}</span>`).join("");
     $app.querySelector("#tbl").innerHTML = `<tr><th>วันที่</th><th>จำนวนรายการ</th><th>จอดเลย</th><th>จองล่วงหน้า</th><th>ค่าส่วนเกิน</th><th>รายได้รวม</th><th>อัตราการใช้ช่อง</th></tr>` +
       r.days.slice().reverse().map((d) => `<tr><td class="num">${d.date}</td><td class="num">${d.count}</td><td class="num">${baht(d.now)}</td><td class="num">${baht(d.advance)}</td><td class="num">${baht(d.overstay)}</td><td class="num"><b>${baht(d.revenue)}</b></td><td class="num">${d.occupancy}%</td></tr>`).join("") +
-      `<tr style="background:#f8fafc"><td><b>รวม</b></td><td class="num"><b>${r.count}</b></td><td></td><td></td><td></td><td class="num"><b>${baht(r.total)}</b></td><td></td></tr>`;
+      `<tr style="background:var(--panel-2)"><td><b>รวม</b></td><td class="num"><b>${r.count}</b></td><td></td><td></td><td></td><td class="num"><b>${baht(r.total)}</b></td><td></td></tr>`;
   };
   $app.querySelector("#run").addEventListener("click", run);
   $app.querySelector("#csv").addEventListener("click", async () => {

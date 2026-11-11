@@ -1,6 +1,8 @@
 // ParkQ driver web app (hash router). Each screen marks its documented elements with data-el="n".
 import { api, getToken, setToken, devLogin, qs, esc, baht, fmtTime, fmtRange, fmtDuration, fmtDateTime, lotBadge, ticketBadge,
-  qrSrc, toast, modal, fieldError, provinceOptions, startAnnotations, TICKET_STATUS } from "./common.js";
+  qrSrc, toast, modal, fieldError, provinceOptions, startAnnotations, TICKET_STATUS, hhmm } from "./common.js";
+import { flapHtml, setFlap, flapIn } from "./flap.js";
+import { icon } from "./icons.js";
 
 const $app = document.getElementById("app");
 const $tab = document.getElementById("tabbar");
@@ -10,15 +12,8 @@ let timers = [];
 const every = (ms, fn) => timers.push(setInterval(fn, ms));
 const clearTimers = () => { timers.forEach(clearInterval); timers = []; };
 
-const ICON = {
-  back: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>`,
-  search: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>`,
-  home: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-7 9 7v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg>`,
-  ticket: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 002-2h14a2 2 0 002 2v2a2 2 0 000 4v2a2 2 0 00-2 2H5a2 2 0 00-2-2v-2a2 2 0 000-4z"/><path d="M14 6v12" stroke-dasharray="2 2"/></svg>`,
-  user: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>`,
-  check: `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>`,
-  nav: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 11l18-8-8 18-2-8z"/></svg>`,
-};
+const ICON = { back: icon("back"), search: icon("search", 20), home: icon("board", 24), ticket: icon("ticket", 24), user: icon("user", 24),
+  check: icon("check", 40), nav: icon("nav", 18), camera: icon("camera", 20), plus: icon("plus", 20), minus: icon("minus", 22) };
 
 function topbar(title, back) {
   return `<header class="topbar">${back ? `<button class="icon-btn" data-el="${back.el ?? ""}" onclick="${back.href ? `location.hash='${back.href}'` : "history.back()"}" aria-label="ย้อนกลับ">${ICON.back}</button>` : ""}<h1>${esc(title)}</h1></header>`;
@@ -37,36 +32,37 @@ function err(e) {
 }
 
 // ------------------------------------------------------------------ ACC_01 login / OTP / register
-let pendingPhone = sessionStorage.getItem("parkq_phone") || "";
+let pendingEmail = sessionStorage.getItem("parkq_email") || "";
 
 function screenLogin() {
   $app.innerHTML = `
     <div class="hero">
-      <div class="logo" data-el="1"><span class="mark">P</span>ParkQ</div>
-      <p data-el="2">จอดง่าย จองไว ด้วย QR<br><span class="small">เช็กที่ว่าง ซื้อสิทธิ์จอด แล้วสแกนเข้าได้ทันที</span></p>
+      <div class="board" data-el="1"><span id="brandFlap" class="flap" role="img" aria-label="PARKQ"></span></div>
+      <p data-el="2">จอดง่าย จองไว ด้วย QR<br><span class="small muted">เช็กที่ว่าง ซื้อสิทธิ์จอด แล้วสแกนเข้าได้ทันที</span></p>
     </div>
     <div class="card float-card stack">
       <h2 style="font-size:19px">เข้าสู่ระบบ / สมัครสมาชิก</h2>
-      <label class="field" data-el="3"><span class="label">เบอร์โทรศัพท์ <span class="req">*</span></span>
-        <input id="phone" class="input" inputmode="numeric" maxlength="10" placeholder="08x-xxx-xxxx" value="${esc(pendingPhone)}" autocomplete="tel">
+      <label class="field" data-el="3"><span class="label">อีเมล <span class="req">*</span></span>
+        <input id="phone" class="input" type="email" inputmode="email" maxlength="120" placeholder="name@example.com" value="${esc(pendingEmail)}" autocomplete="email">
         <div class="err"></div></label>
       <label class="check" data-el="4"><input type="checkbox" id="accept">
         <span>ฉันยอมรับ <a href="#" onclick="event.preventDefault()">เงื่อนไขการใช้บริการ</a> และ <a href="#" onclick="event.preventDefault()">นโยบายความเป็นส่วนตัว</a></span></label>
       <button id="send" class="btn block" data-el="5" disabled>ขอรหัส OTP</button>
-      <p class="small muted" style="text-align:center;margin:4px 0 0">ไม่ต้องจำรหัสผ่าน เราจะส่งรหัส 6 หลักทาง SMS</p>
+      <p class="small muted" style="text-align:center;margin:4px 0 0">ไม่ต้องจำรหัสผ่าน เราจะส่งรหัส 6 หลักไปที่อีเมลของคุณ</p>
     </div>
-    <p style="text-align:center"><a href="/admin" data-el="6" class="small">สำหรับผู้ดูแลลานจอด / พนักงาน →</a></p>`;
+    <p style="text-align:center"><a href="/admin" data-el="6" class="small">สำหรับผู้ดูแลลานจอด / พนักงาน</a></p>`;
+  flapIn($app.querySelector("#brandFlap"), "PARKQ");
   const phone = $app.querySelector("#phone"), accept = $app.querySelector("#accept"), send = $app.querySelector("#send");
-  const valid = () => /^0[689]\d{8}$/.test(phone.value);
+  const valid = () => /^[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(\.[A-Za-z0-9\-]+)+$/.test(phone.value.trim());
   const sync = () => { send.disabled = !(valid() && accept.checked); };
-  phone.addEventListener("input", () => { phone.value = phone.value.replace(/\D/g, ""); fieldError(phone, phone.value.length >= 10 && !valid() ? "กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง" : ""); sync(); });
-  phone.addEventListener("blur", () => fieldError(phone, phone.value && !valid() ? "กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง" : ""));
+  phone.addEventListener("input", () => { fieldError(phone, ""); sync(); });
+  phone.addEventListener("blur", () => fieldError(phone, phone.value && !valid() ? "กรุณากรอกอีเมลให้ถูกต้อง" : ""));
   accept.addEventListener("change", sync);
   send.addEventListener("click", async () => {
     send.disabled = true;
     try {
-      const r = await api("/api/auth/otp", { method: "POST", body: { phone: phone.value, accept: accept.checked } });
-      pendingPhone = phone.value; sessionStorage.setItem("parkq_phone", pendingPhone);
+      const r = await api("/api/auth/otp", { method: "POST", body: { email: phone.value.trim(), accept: accept.checked } });
+      pendingEmail = phone.value.trim().toLowerCase(); sessionStorage.setItem("parkq_email", pendingEmail);
       sessionStorage.setItem("parkq_otp", JSON.stringify({ masked: r.masked, sentAt: Date.now(), dev: r.dev_code }));
       location.hash = "#/otp";
     } catch (e) { err(e); sync(); }
@@ -74,13 +70,13 @@ function screenLogin() {
 }
 
 function screenOtp(params) {
-  if (params?.get("phone")) pendingPhone = params.get("phone");   // deep link used by demos / doc screenshots
+  if (params?.get("email")) pendingEmail = params.get("email");   // deep link used by demos / doc screenshots
   const info = JSON.parse(sessionStorage.getItem("parkq_otp") || "{}");
-  if (!pendingPhone) return (location.hash = "#/login");
+  if (!pendingEmail) return (location.hash = "#/login");
   $app.innerHTML = `${topbar("ยืนยันรหัส OTP", { href: "#/login", el: 1 })}
     <div class="page">
       <div class="card stack">
-        <p data-el="2" style="margin:0">ส่งรหัส 6 หลักไปที่ <b>${esc(info.masked || pendingPhone)}</b> แล้ว</p>
+        <p data-el="2" style="margin:0">ส่งรหัส 6 หลักไปที่ <b>${esc(info.masked || pendingEmail)}</b> แล้ว</p>
         <div class="field" data-el="3"><span class="label">รหัส OTP <span class="req">*</span></span>
           <input id="otp" class="input otp-input num" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="••••••">
           <div class="err" id="otpErr"></div></div>
@@ -89,7 +85,7 @@ function screenOtp(params) {
           <button id="resend" class="btn ghost sm" data-el="5" disabled>ขอรหัสใหม่ (<span id="cool">60</span>)</button>
         </div>
         <button id="verify" class="btn block" data-el="6" disabled>ยืนยัน</button>
-        ${info.dev ? `<div class="dev-box">โหมดทดสอบ (ยังไม่ต่อ SMS Gateway): รหัสคือ <b>${info.dev}</b></div>` : ""}
+        ${info.dev ? `<div class="dev-box">โหมดทดสอบ (ยังไม่ได้ตั้งค่าอีเมลของระบบ): รหัสคือ <b>${info.dev}</b></div>` : ""}
       </div>
     </div>`;
   const box = $app.querySelector("#otp"), verify = $app.querySelector("#verify"), errEl = $app.querySelector("#otpErr");
@@ -108,7 +104,7 @@ function screenOtp(params) {
   tick(); every(1000, tick);
   $app.querySelector("#resend").addEventListener("click", async () => {
     try {
-      const r = await api("/api/auth/otp", { method: "POST", body: { phone: pendingPhone, accept: true } });
+      const r = await api("/api/auth/otp", { method: "POST", body: { email: pendingEmail, accept: true } });
       sessionStorage.setItem("parkq_otp", JSON.stringify({ masked: r.masked, sentAt: Date.now(), dev: r.dev_code }));
       toast("ส่งรหัสใหม่แล้ว"); route();
     } catch (e) { err(e); }
@@ -116,7 +112,7 @@ function screenOtp(params) {
   verify.addEventListener("click", async () => {
     verify.disabled = true;
     try {
-      const r = await api("/api/auth/verify", { method: "POST", body: { phone: pendingPhone, code: code() } });
+      const r = await api("/api/auth/verify", { method: "POST", body: { email: pendingEmail, code: code() } });
       setToken(r.token); me = r.user;
       sessionStorage.removeItem("parkq_otp");
       location.hash = r.is_new ? "#/register" : (sessionStorage.getItem("parkq_next") || "#/");
@@ -132,7 +128,7 @@ function screenRegister() {
     <div class="page"><div class="card stack">
       <p class="muted" style="margin:0">อีกนิดเดียว กรอกชื่อและรถคันแรกของคุณ</p>
       <label class="field" data-el="1"><span class="label">ชื่อ-นามสกุล <span class="req">*</span></span><input id="name" class="input" maxlength="100" placeholder="เช่น สมชาย ใจดี"><div class="err"></div></label>
-      <label class="field" data-el="2"><span class="label">อีเมล (ใช้รับใบเสร็จ)</span><input id="email" class="input" type="email" placeholder="name@example.com"><div class="err"></div></label>
+      <label class="field" data-el="2"><span class="label">เบอร์โทรศัพท์ (ไม่บังคับ)</span><input id="email" class="input" inputmode="numeric" maxlength="10" placeholder="08x-xxx-xxxx"><div class="err"></div></label>
       <label class="field" data-el="3"><span class="label">ทะเบียนรถ <span class="req">*</span></span><input id="plate" class="input" placeholder="เช่น กข 1234"><div class="err"></div></label>
       <label class="field" data-el="4"><span class="label">จังหวัด <span class="req">*</span></span><select id="prov" class="input">${provinceOptions()}</select></label>
       <button id="go" class="btn block" data-el="5">เริ่มใช้งาน</button>
@@ -140,10 +136,10 @@ function screenRegister() {
   $app.querySelector("#go").addEventListener("click", async () => {
     const f = (id) => $app.querySelector("#" + id);
     try {
-      await api("/api/auth/register", { method: "POST", body: { name: f("name").value, email: f("email").value, plate: f("plate").value, province: f("prov").value } });
+      await api("/api/auth/register", { method: "POST", body: { name: f("name").value, phone: f("email").value, plate: f("plate").value, province: f("prov").value } });
       toast("สมัครสมาชิกเรียบร้อย"); location.hash = "#/";
     } catch (e) {
-      const map = { NAME_REQUIRED: "name", INVALID_EMAIL: "email", INVALID_PLATE: "plate" };
+      const map = { NAME_REQUIRED: "name", INVALID_PHONE: "email", INVALID_PLATE: "plate" };
       map[e.code] ? fieldError(f(map[e.code]), e.message) : err(e);
     }
   });
@@ -151,23 +147,45 @@ function screenRegister() {
 
 // ------------------------------------------------------------------ LOT_01 home / LOT_02 detail
 let filter = "all";
+const TONE = { AVAILABLE: "", NEARLY_FULL: "warn", FULL: "bad", STALE: "dim" };
+const freeText = (l) => (l.stale ? "–" : String(l.free));
 function lotCard(l, first) {
-  const pct = l.capacity ? (l.capacity - l.free) / l.capacity : 1;
-  const color = { AVAILABLE: "var(--ok)", NEARLY_FULL: "#d97706", FULL: "var(--bad)", STALE: "var(--stale)" }[l.status];
-  return `<article class="card lot-card" onclick="location.hash='#/lot/${l.id}'">
+  return `<article class="card lot-card" data-lot="${l.id}" onclick="location.hash='#/lot/${l.id}'">
     <div><h3>${esc(l.name)}</h3><div class="meta">${l.rate} บาท/ชม. • ${l.open_time}–${l.close_time} น.${l.open_now ? "" : " • ปิดอยู่"}</div>
-      <div style="margin-top:6px" ${first ? 'data-el="5"' : ""}>${lotBadge(l.status)}</div></div>
-    <div class="free"><b class="num">${l.stale ? "–" : l.free}</b><span class="small muted">ว่าง / ${l.capacity}</span></div>
-    <div class="meter"><i style="width:${Math.round(pct * 100)}%;background:${color}"></i></div>
+      <div style="margin-top:8px" data-badge ${first ? 'data-el="5"' : ""}>${lotBadge(l.status)}</div></div>
+    <div class="free">${flapHtml(freeText(l), { cells: 3, tone: TONE[l.status], label: `ว่าง ${freeText(l)} ช่อง` })}<span class="cap">ว่าง / ${l.capacity} ช่อง</span></div>
     <div class="actions" onclick="event.stopPropagation()">
-      <button class="btn sm" ${first ? 'data-el="6"' : ""} ${l.sellable && l.free > 0 ? "" : "disabled"} onclick="location.hash='#/book/${l.id}?mode=now'">จอดเลย</button>
-      <button class="btn ghost sm" ${l.sellable ? "" : "disabled"} onclick="location.hash='#/book/${l.id}?mode=advance'">จองล่วงหน้า</button>
+      <button class="btn sm" data-act="now" ${first ? 'data-el="6"' : ""} ${l.sellable && l.free > 0 ? "" : "disabled"} onclick="location.hash='#/book/${l.id}?mode=now'">จอดเลย</button>
+      <button class="btn ghost sm" data-act="advance" ${l.sellable ? "" : "disabled"} onclick="location.hash='#/book/${l.id}?mode=advance'">จองล่วงหน้า</button>
+    </div></article>`;
+}
+
+// Same rows, new numbers: flip the changed cells in place instead of rebuilding the list every 5 seconds.
+function patchLots(list, lots) {
+  lots.forEach((l) => {
+    const row = list.querySelector(`[data-lot="${l.id}"]`);
+    if (!row) return;
+    setFlap(row.querySelector(".flap"), freeText(l), { tone: TONE[l.status], label: `ว่าง ${freeText(l)} ช่อง` });
+    row.querySelector("[data-badge]").innerHTML = lotBadge(l.status);
+    row.querySelector('[data-act="now"]').disabled = !(l.sellable && l.free > 0);
+    row.querySelector('[data-act="advance"]').disabled = !l.sellable;
+  });
+}
+
+function activeTicketCard(t) {
+  return `<article class="ticket" style="cursor:pointer" onclick="location.hash='#/ticket/${t.id}'">
+    <div class="head row between"><div><h3 style="font-size:17px">${esc(t.lot_name)}</h3><div class="code">${esc(t.id)}</div></div>${ticketBadge(t.status)}</div>
+    <div class="body row" style="gap:14px">
+      <div class="qr-box" style="padding:8px;flex:none"><img alt="QR ตั๋ว" width="112" height="112" src="${qrSrc(t.token)}"></div>
+      <div class="grow stack"><div class="times stack-rows"><div class="t"><span class="cap">เริ่ม</span>${flapHtml(hhmm(t.start_at), { size: 22 })}</div><div class="t"><span class="cap">สิ้นสุด</span>${flapHtml(hhmm(t.end_at), { size: 22 })}</div></div>
+        <div class="plate" style="min-width:0"><b>${esc(t.plate.split(" ").slice(0, 2).join(" "))}</b></div></div>
     </div></article>`;
 }
 
 async function screenHome() {
   $app.innerHTML = `${topbar("ค้นหาที่จอดรถ")}
     <div class="page">
+      <div id="active"></div>
       <div class="search" data-el="1">${ICON.search}<input id="q" class="input" placeholder="ค้นหาชื่อสถานที่หรือลานจอด"></div>
       <div class="map" id="map" data-el="2"></div>
       <div class="chips" data-el="3">${[["all", "ทั้งหมด"], ["free", "มีที่ว่าง"], ["advance", "จองล่วงหน้าได้"]]
@@ -183,8 +201,14 @@ async function screenHome() {
     if (filter === "advance") lots = lots.filter((l) => l.sellable);
     const list = $app.querySelector("#list");
     if (!list) return;
-    list.innerHTML = lots.length ? lots.map((l, i) => lotCard(l, i === 0)).join("") : `<div class="empty">ไม่พบลานจอดที่ค้นหา</div>`;
+    const sig = filter + "|" + lots.map((l) => [l.id, l.name, l.rate, l.open_now].join(",")).join(";");
+    if (lots.length && list.dataset.sig === sig) patchLots(list, lots);
+    else { list.innerHTML = lots.length ? lots.map((l, i) => lotCard(l, i === 0)).join("") : `<div class="empty">ไม่พบลานจอดที่ค้นหา</div>`; list.dataset.sig = sig; }
     drawMap(lots);
+    try {
+      const mine = (await api("/api/tickets")).find((t) => ["WAITING", "PARKED"].includes(t.status));
+      const box = $app.querySelector("#active"); if (box) box.innerHTML = mine ? activeTicketCard(mine) : "";
+    } catch {}
   };
   $app.querySelectorAll(".chip").forEach((c) => c.addEventListener("click", () => { filter = c.dataset.f; $app.querySelectorAll(".chip").forEach((x) => x.classList.toggle("on", x === c)); load(); }));
   let t; q.addEventListener("input", () => { clearTimeout(t); t = setTimeout(load, 250); });
@@ -212,9 +236,9 @@ async function screenLot(id) {
       <div class="card" data-el="2"><h2 style="font-size:19px">${esc(l.name)}</h2><p class="muted small" style="margin:4px 0 10px">${esc(l.address)}</p>
         <a class="btn soft sm" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lng}">${ICON.nav} นำทาง</a></div>
       <div class="card row between" data-el="3"><div>${lotBadge(l.status)}<div class="small muted" style="margin-top:6px">อัปเดตอัตโนมัติทุก 5 วินาที</div></div>
-        <div style="text-align:right"><b class="num" style="font-size:30px" id="free">${l.stale ? "–" : l.free}</b><span class="muted"> / ${l.capacity} ช่องว่าง</span></div></div>
+        <div style="text-align:right"><span id="free" style="display:inline-block">${flapHtml(l.stale ? "–" : String(l.free), { cells: 3, size: 40, tone: TONE[l.status] })}</span><div class="small muted">ว่าง / ${l.capacity} ช่อง</div></div></div>
       <div data-el="4"><div class="section-title" style="margin-bottom:10px">ช่องว่างแยกโซน</div>
-        <div class="zones">${l.zones.map((z) => `<div class="zone"><span class="small muted">โซน ${z.zone}</span><b class="num">${z.total - z.occupied}</b><span class="small muted">/ ${z.total}</span></div>`).join("")}</div></div>
+        <div class="zones">${l.zones.map((z) => `<div class="zone"><span class="small muted">โซน ${z.zone}</span>${flapHtml(String(z.total - z.occupied), { cells: 2 })}<div class="small muted">/ ${z.total}</div></div>`).join("")}</div></div>
       <div class="card" data-el="5"><dl class="kv"><dt>อัตราค่าบริการ</dt><dd>${l.rate} บาท / ชั่วโมง</dd><dt>เวลาเปิด–ปิด</dt><dd>${l.open_time}–${l.close_time} น.</dd>
         <dt>จองล่วงหน้า</dt><dd>สูงสุด ${l.advance_ratio}% ของช่อง</dd></dl>
         <p class="small muted" style="margin:10px 0 0">จอดไม่เกิน 15 นาทีไม่คิดเงิน • ยกเลิกก่อนเวลาเริ่ม 60 นาที คืนเงินเต็มจำนวน</p></div>
@@ -224,7 +248,7 @@ async function screenLot(id) {
         <button class="btn ghost grow" data-el="7" ${l.online && !l.stale ? "" : "disabled"} onclick="location.hash='#/book/${l.id}?mode=advance'">จองล่วงหน้า</button>
       </div>
     </div>`;
-  every(5000, async () => { try { const x = await api("/api/lots/" + id); const f = $app.querySelector("#free"); if (f) f.textContent = x.stale ? "–" : x.free; } catch {} });
+  every(5000, async () => { try { const x = await api("/api/lots/" + id); const f = $app.querySelector("#free .flap"); if (f) setFlap(f, x.stale ? "–" : String(x.free), { tone: TONE[x.status] }); } catch {} });
 }
 
 // ------------------------------------------------------------------ BKG_01/02 booking, BKG_03 payment
@@ -247,11 +271,11 @@ async function screenBook(id, params) {
       <div id="nowInfo" class="card small muted">เริ่มนับเวลาทันทีที่ชำระเงินสำเร็จ • เข้าลานได้ภายใน 30 นาที</div>
       <div class="card stack">
         <div class="field" data-el="5"><span class="label">จำนวนชั่วโมง <span class="req">*</span></span>
-          <div class="stepper"><button id="minus" aria-label="ลด">−</button><div class="val num"><span id="hrs">2</span> ชม.</div><button id="plus" aria-label="เพิ่ม">+</button></div>
+          <div class="stepper"><button id="minus" aria-label="ลดจำนวนชั่วโมง">${ICON.minus}</button><div class="val num"><span id="hrs">2</span> ชม.</div><button id="plus" aria-label="เพิ่มจำนวนชั่วโมง">${ICON.plus}</button></div>
           <div class="small muted" style="margin-top:6px" id="endAt"></div></div>
         <label class="field" data-el="6"><span class="label">รถที่จะเข้าจอด <span class="req">*</span></span>
           ${vehicles.length ? `<select id="veh" class="input">${vehicles.map((v) => `<option value="${v.id}">${esc(v.plate)} ${esc(v.province)}${v.is_primary ? " (คันหลัก)" : ""}</option>`).join("")}</select>`
-            : `<a class="btn soft block" href="#/account?add=1">+ เพิ่มรถก่อนจอง</a>`}</label>
+            : `<a class="btn soft block" href="#/account?add=1">${ICON.plus} เพิ่มรถก่อนจอง</a>`}</label>
       </div>
       <div class="sticky-cta">
         <div class="card"><div class="total" data-el="7"><span class="muted">ราคารวม</span><b class="num" id="total"></b></div>
@@ -400,7 +424,7 @@ async function screenTicket(id, params) {
   $app.innerHTML = `${topbar("ตั๋ว QR", { href: "#/tickets" })}
     <div class="page">
       <div class="ticket">
-        <div class="head"><div class="code" data-el="2">รหัสตั๋ว ${esc(t.id)}</div><div style="font-size:18px;font-weight:700">${esc(t.lot_name)}</div></div>
+        <div class="head"><h2 style="font-size:19px">${esc(t.lot_name)}</h2><div class="code" data-el="2">รหัสตั๋ว ${esc(t.id)}</div></div>
         <div class="body" style="text-align:center">
           ${live ? `<div class="qr-box" data-el="1"><img alt="QR ตั๋ว" src="${qrSrc(t.token)}"></div>
             <p class="small muted" style="margin:10px 0 0">${t.status === "WAITING" ? "สแกนที่ตู้ประตูทางเข้า" : "สแกน QR เดิมที่ตู้ประตูทางออก"}</p>`
@@ -408,6 +432,7 @@ async function screenTicket(id, params) {
         </div>
         <div class="tear"></div>
         <div class="body stack">
+          <div class="times"><div class="t"><span class="cap">เริ่มจอด</span>${flapHtml(hhmm(t.start_at), { size: 30 })}</div><div class="t"><span class="cap">สิ้นสุด</span>${flapHtml(hhmm(t.end_at), { size: 30 })}</div></div>
           <div class="row between"><span class="muted">สถานะ</span><span data-el="4" id="status">${ticketBadge(t.status)}</span></div>
           <dl class="kv" data-el="3"><dt>ทะเบียนรถ</dt><dd>${esc(t.plate)}</dd><dt>เวลา</dt><dd>${fmtRange(t.start_at, t.end_at)}</dd>
             <dt>ชำระแล้ว</dt><dd>${baht(t.amount + t.overstay_fee)}</dd>${t.refund ? `<dt>เงินคืน</dt><dd>${baht(t.refund)}</dd>` : ""}</dl>
@@ -451,14 +476,14 @@ async function screenAccount(params) {
   try { [me, vehicles] = await Promise.all([api("/api/me"), api("/api/vehicles")]); } catch (e) { return err(e); }
   $app.innerHTML = `${topbar("บัญชีและรถของฉัน")}<div class="page">
     <div class="card row" data-el="1"><div class="success-icon" style="width:52px;height:52px;margin:0;background:var(--brand-soft);color:var(--brand)">${ICON.user}</div>
-      <div class="grow"><b>${esc(me.name || "-")}</b><div class="small muted num">${esc(me.phone)}</div></div></div>
+      <div class="grow"><b>${esc(me.name || "-")}</b><div class="small muted num">${esc(me.email)}</div></div></div>
     <div class="section-title">รถของฉัน</div>
     <div class="stack" data-el="2">${vehicles.map((v, i) => `<div class="card vehicle">
       <div class="plate"><b>${esc(v.plate)}</b><span>${esc(v.province)}</span></div>
       <div><b>${v.type === "car" ? "รถยนต์" : "รถจักรยานยนต์"}</b>${v.is_primary ? ` <span class="badge blue">คันหลัก</span>` : ""}</div>
       <div class="row" style="gap:4px"><button class="btn ghost sm" data-edit="${v.id}" ${i === 0 ? 'data-el="3"' : ""}>แก้ไข</button><button class="btn danger ghost sm" data-del="${v.id}" ${i === 0 ? 'data-el="4"' : ""}>ลบ</button></div></div>`).join("")
       || `<div class="empty">ยังไม่มีรถ เพิ่มรถอย่างน้อย 1 คันก่อนจอง</div>`}</div>
-    <button class="btn soft block" id="add" data-el="5">+ เพิ่มรถ</button>
+    <button class="btn soft block" id="add" data-el="5">${ICON.plus} เพิ่มรถ</button>
     <button class="btn ghost block" id="logout" data-el="6">ออกจากระบบ</button></div>`;
   showTabs("account", 7);
   $app.querySelector("#add").addEventListener("click", () => vehicleModal());

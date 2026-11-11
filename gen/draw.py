@@ -276,7 +276,7 @@ WORKFLOWS = {
     "wf1_booking": ("Workflow 1: ค้นหาลานจอด ซื้อสิทธิ์/จองที่จอด และชำระเงิน", {
         "s": ("term", "ผู้ใช้เปิด ParkQ", 0, 0),
         "d1": ("dec", "เข้าสู่ระบบแล้ว?", 0, 1),
-        "login": ("proc", "เข้าสู่ระบบด้วยเบอร์โทร + OTP (ACC_01)", 1, 1),
+        "login": ("proc", "เข้าสู่ระบบด้วยอีเมล + OTP (ACC_01)", 1, 1),
         "find": ("proc", "ค้นหาลานจอดและดูสถานะ ว่าง/ใกล้เต็ม/เต็ม (LOT_01)", 0, 2),
         "d2": ("dec", "ลานมีช่องว่าง?", 0, 3),
         "other": ("proc", "เลือกลานอื่นหรือเปลี่ยนเวลา", 1, 3),
@@ -346,7 +346,7 @@ def architecture():
         "db": (420, 320, "SQLite / PostgreSQL", "ผู้ใช้ ลาน ช่องจอด ตั๋ว ชำระเงิน log"),
         "mqtt": (420, 450, "Device API (HTTP)", "device key · slots / commands / scan"),
         "pay": (800, 40, "Payment Gateway", "QR พร้อมเพย์ / บัตร"),
-        "sms": (800, 150, "SMS Gateway", "ส่ง OTP"),
+        "sms": (800, 150, "Email (SMTP)", "ส่ง OTP ทางอีเมล"),
         "map": (800, 260, "Map Service", "แผนที่ / นำทาง"),
         "gate": (40, 420, "Gate Controller (PCB)", "ESP32 · QR Reader · OLED · Relay/Servo"),
         "sensor": (800, 420, "Slot Sensors", "Ultrasonic / ToF + LED WS2812B"),

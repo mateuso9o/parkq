@@ -19,6 +19,7 @@ NO_SHOW_MINUTES = 30          # booking released if not entered this long after 
 NEARLY_FULL_RATIO = 0.20      # below this share of free slots the lot is "nearly full"
 
 PHONE_RE = re.compile(r"^0[689]\d{8}$")
+EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(\.[A-Za-z0-9\-]+)+$")
 PLATE_RE = re.compile(r"^(\d{0,1}[ก-ฮ]{1,2})\s?(\d{1,4})$")
 
 
@@ -27,6 +28,16 @@ PLATE_RE = re.compile(r"^(\d{0,1}[ก-ฮ]{1,2})\s?(\d{1,4})$")
 def is_valid_phone(phone: str) -> bool:
     """Thai mobile number: 10 digits starting 06, 08 or 09."""
     return bool(PHONE_RE.match(phone or ""))
+
+
+def is_valid_email(email: str) -> bool:
+    """Plain address@domain.tld check (no spaces, no empty labels)."""
+    return bool(EMAIL_RE.match(email or ""))
+
+
+def normalize_email(email: str) -> str:
+    """Accounts are keyed by the lower-cased, trimmed address."""
+    return (email or "").strip().lower()
 
 
 def is_valid_plate(plate: str) -> bool:

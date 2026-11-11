@@ -3,3 +3,5 @@ __pycache__/
 app/parkq.db*
 build/
 .claude/settings.local.json
+
+.env

@@ -545,7 +545,7 @@ def build_w8(ut_out, passed, all_ok):
           [1.4, 2.6, 6.8, 4.2, 1.5], size=9, center_cols=(0, 4))
     n_ac = sum(tc_status(tc[0]) == "AC" for tc in TEST_CASES)
     para(d, f"System Test Case ใน W9 ผ่านแล้ว {n_ac}/{len(TEST_CASES)} ข้อ (จาก Integration Test และการทดสอบในเบราว์เซอร์) "
-            "ข้อที่เหลือต้องใช้ฮาร์ดแวร์จริง, SMS/Payment Gateway จริง หรือการรอเวลาจริง จะทดสอบในรอบ System Test/UAT",
+            "ข้อที่เหลือต้องใช้ฮาร์ดแวร์จริง, Payment Gateway จริง หรือการรอเวลาจริง จะทดสอบในรอบ System Test/UAT",
          size=9.5, color="5B6475")
 
     heading(d, "3. รายงานข้อผิดพลาด (Defect Report)")

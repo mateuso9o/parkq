@@ -1,19 +1,41 @@
-"""SQLite storage for ParkQ (PostgreSQL in production; the schema is plain SQL so it ports directly)."""
+"""Storage for ParkQ.
+
+SQLite file by default (local runs, tests).  Set DATABASE_URL (e.g. a free Neon / Supabase PostgreSQL) and the same
+code runs on PostgreSQL: PgConn below translates the few SQLite-only constructs, so server.py stays unchanged.
+"""
 import os
 import random
+import re
 import sqlite3
 import time
 from pathlib import Path
 
+
+
+def _load_dotenv():
+    """Read KEY=VALUE lines from a git-ignored .env in the project root (real environment variables win)."""
+    f = Path(__file__).resolve().parent.parent / ".env"
+    if not f.exists():
+        return
+    for line in f.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            k, v = line.split("=", 1)
+            os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+
+
+_load_dotenv()
 DB_PATH = Path(os.environ.get("PARKQ_DB", Path(__file__).resolve().parent / "parkq.db"))
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+IS_PG = DATABASE_URL.startswith(("postgres://", "postgresql://"))
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY, phone TEXT UNIQUE NOT NULL, name TEXT, email TEXT,
+  id INTEGER PRIMARY KEY, email TEXT UNIQUE NOT NULL, name TEXT, phone TEXT,
   role TEXT NOT NULL DEFAULT 'driver', created_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, user_id INTEGER NOT NULL, created_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS otps (
-  id INTEGER PRIMARY KEY, phone TEXT NOT NULL, code TEXT NOT NULL, created_at INTEGER NOT NULL,
+  id INTEGER PRIMARY KEY, email TEXT NOT NULL, code TEXT NOT NULL, created_at INTEGER NOT NULL,
   expires_at INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, used INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS vehicles (
   id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, plate TEXT NOT NULL, province TEXT NOT NULL,
@@ -59,14 +81,86 @@ LOTS = [
      13.8840, 100.6010, 80, 25, "05:30", "24:00", 80, None),
 ]
 
-SEED_USERS = [  # phone, name, role
-    ("0800000001", "ผู้ดูแล ParkQ", "admin"),
-    ("0800000002", "พนักงานหน้าลาน", "attendant"),
-    ("0891234567", "สมชาย ใจดี", "driver"),
+# Seed accounts are keyed by e-mail.  On a real deployment set PARKQ_ADMIN_EMAIL / PARKQ_STAFF_EMAIL to
+# mailboxes you own, otherwise nobody can receive the sign-in code for these roles.
+SEED_USERS = [  # email, name, role
+    (os.environ.get("PARKQ_ADMIN_EMAIL", "admin@parkq.demo").strip().lower(), "ผู้ดูแล ParkQ", "admin"),
+    (os.environ.get("PARKQ_STAFF_EMAIL", "staff@parkq.demo").strip().lower(), "พนักงานหน้าลาน", "attendant"),
+    ("somchai@parkq.demo", "สมชาย ใจดี", "driver"),
 ]
 
 
-def connect() -> sqlite3.Connection:
+
+# ---------------------------------------------------------------- PostgreSQL adapter
+
+class Row(dict):
+    """Result row readable by column name, by position and via dict(row), like sqlite3.Row."""
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return list(self.values())[key]
+        return super().__getitem__(key)
+
+
+def pg_schema(schema: str) -> str:
+    """SQLite DDL -> PostgreSQL DDL."""
+    return (schema.replace("INTEGER PRIMARY KEY", "SERIAL PRIMARY KEY")
+                  .replace(" REAL", " DOUBLE PRECISION")
+                  .replace("created_at INTEGER", "created_at BIGINT"))
+
+
+def to_pg(sql: str) -> str:
+    """Translate one SQLite statement to PostgreSQL ('?' placeholders, INSERT OR IGNORE, literal '%')."""
+    sql = sql.replace("%", "%%").replace("?", "%s")
+    if re.match(r"\s*INSERT\s+OR\s+IGNORE\s+INTO", sql, re.I):
+        sql = re.sub(r"INSERT\s+OR\s+IGNORE\s+INTO", "INSERT INTO", sql, count=1, flags=re.I) + " ON CONFLICT DO NOTHING"
+    return sql
+
+
+class PgCursor:
+    def __init__(self, cur):
+        self._cur = cur
+
+    def fetchone(self):
+        r = self._cur.fetchone()
+        return Row(r) if r is not None else None
+
+    def fetchall(self):
+        return [Row(r) for r in self._cur.fetchall()]
+
+    def __iter__(self):
+        return iter(self.fetchall())
+
+
+class PgConn:
+    """Minimal sqlite3-style connection over psycopg (autocommit; BEGIN/COMMIT/ROLLBACK issued explicitly)."""
+
+    def __init__(self, url: str):
+        import psycopg
+        from psycopg.rows import dict_row
+        self._conn = psycopg.connect(url, autocommit=True, row_factory=dict_row, connect_timeout=15,
+                                     prepare_threshold=None)   # PgBouncer-friendly (no server-side prepared statements)
+
+    def execute(self, sql: str, params=()):
+        head = sql.strip().upper()
+        if head.startswith("PRAGMA"):
+            return PgCursor(self._conn.execute("SELECT 1"))
+        if head.startswith("BEGIN"):
+            # BEGIN IMMEDIATE (SQLite) serialised writers; here a table lock gives bookings the same guarantee (DEF-03)
+            self._conn.execute("BEGIN")
+            self._conn.execute("LOCK TABLE tickets IN SHARE ROW EXCLUSIVE MODE")
+            return PgCursor(self._conn.execute("SELECT 1"))
+        return PgCursor(self._conn.execute(to_pg(sql), tuple(params)))
+
+    def executescript(self, script: str):
+        self._conn.execute(script)
+
+    def close(self):
+        self._conn.close()
+
+def connect():
+    if IS_PG:
+        return PgConn(DATABASE_URL)
     # Each request owns its connection, but FastAPI may open it and use it on different worker threads (DEF-05).
     conn = sqlite3.connect(DB_PATH, timeout=10, isolation_level=None, check_same_thread=False)
     conn.row_factory = sqlite3.Row
@@ -76,11 +170,15 @@ def connect() -> sqlite3.Connection:
 
 
 def init(reset: bool = False):
-    if reset:
+    if reset and IS_PG:
+        conn = connect()
+        conn.executescript("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
+        conn.close()
+    elif reset:
         for suffix in ("", "-wal", "-shm"):
             Path(str(DB_PATH) + suffix).unlink(missing_ok=True)
     conn = connect()
-    conn.executescript(SCHEMA)
+    conn.executescript(pg_schema(SCHEMA) if IS_PG else SCHEMA)
     if conn.execute("SELECT COUNT(*) FROM lots").fetchone()[0] == 0:
         seed(conn)
     conn.close()
@@ -89,10 +187,10 @@ def init(reset: bool = False):
 def seed(conn):
     now = int(time.time())
     rnd = random.Random(7)
-    for phone, name, role in SEED_USERS:
-        conn.execute("INSERT INTO users(phone,name,role,created_at) VALUES (?,?,?,?)", (phone, name, role, now))
+    for email, name, role in SEED_USERS:
+        conn.execute("INSERT INTO users(email,name,role,created_at) VALUES (?,?,?,?)", (email, name, role, now))
     admin_id = conn.execute("SELECT id FROM users WHERE role='admin'").fetchone()[0]
-    driver_id = conn.execute("SELECT id FROM users WHERE phone='0891234567'").fetchone()[0]
+    driver_id = conn.execute("SELECT id FROM users WHERE email='somchai@parkq.demo'").fetchone()[0]
     conn.execute("INSERT INTO vehicles(user_id,plate,province,type,is_primary) VALUES (?,?,?,?,1)",
                  (driver_id, "กข 1234", "กรุงเทพมหานคร", "car"))
     for lid, name, addr, lat, lng, cap, rate, op, cl, occ, dev in LOTS:

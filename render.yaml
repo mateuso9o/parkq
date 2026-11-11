@@ -1,11 +1,12 @@
 # Render Blueprint: free web service for the ParkQ demo site.
-# Data lives in SQLite on the instance disk, so it resets to the seed data on every restart or deploy.
+# Data lives in a free external PostgreSQL (Neon / Supabase): set DATABASE_URL in the dashboard.
+# Without DATABASE_URL it falls back to SQLite on the instance disk, which resets on every restart or deploy.
 services:
   - type: web
     name: parkq
     runtime: python
     plan: free
-    region: singapore
+    region: singapore   # same region as the Neon database (aws-ap-southeast-1): every request makes several queries, keep them close
     buildCommand: pip install -r requirements.txt
     startCommand: python -m uvicorn server:app --app-dir app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/config
@@ -18,3 +19,18 @@ services:
         value: "1"          # disables the ?as=role one-click sign-in used for screenshots
       - key: PARKQ_SECRET
         generateValue: true # signs ticket QR codes
+      # E-mail OTP (set these in the Render dashboard; never commit them). Without them the OTP is shown on screen.
+      - key: DATABASE_URL
+        sync: false
+      - key: PARKQ_SMTP_HOST
+        sync: false
+      - key: PARKQ_SMTP_USER
+        sync: false
+      - key: PARKQ_SMTP_PASS
+        sync: false
+      - key: PARKQ_SMTP_FROM
+        sync: false
+      - key: PARKQ_ADMIN_EMAIL
+        sync: false
+      - key: PARKQ_STAFF_EMAIL
+        sync: false
