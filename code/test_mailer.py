@@ -80,5 +80,36 @@ class TestMailer(unittest.TestCase):
         self.assertFalse(mailer.is_configured(mailer.config_from_env({})))
 
 
+API_CFG = {"api_key": "k-123", "sender": "ParkQ <no-reply@example.com>"}
+
+
+class TestBrevoApi(unittest.TestCase):
+    def test_UT35_api_key_alone_counts_as_configured(self):
+        self.assertTrue(mailer.is_configured(API_CFG))
+        self.assertFalse(mailer.is_configured({"api_key": "k"}))   # no sender
+
+    def test_UT36_api_send_posts_json_with_key(self):
+        calls = []
+        mailer.send_otp("somchai@example.com", "654321", 5, config=API_CFG,
+                        http_post=lambda url, headers, body, timeout: calls.append((url, headers, body)))
+        url, headers, body = calls[0]
+        self.assertEqual(url, "https://api.brevo.com/v3/smtp/email")
+        self.assertEqual(headers["api-key"], "k-123")
+        self.assertEqual(body["sender"], {"name": "ParkQ", "email": "no-reply@example.com"})
+        self.assertEqual(body["to"], [{"email": "somchai@example.com"}])
+        self.assertIn("654321", body["textContent"])
+
+    def test_UT37_api_failure_wrapped(self):
+        def boom(url, headers, body, timeout):
+            raise OSError("HTTP 401")
+        with self.assertRaises(mailer.MailError):
+            mailer.send_otp("a@b.co", "111111", 5, config=API_CFG, http_post=boom)
+
+    def test_UT38_api_key_read_from_env(self):
+        cfg = mailer.config_from_env({"PARKQ_BREVO_KEY": "k", "PARKQ_SMTP_FROM": "ParkQ <x@y.z>"})
+        self.assertEqual(cfg["api_key"], "k")
+        self.assertTrue(mailer.is_configured(cfg))
+
+
 if __name__ == "__main__":
     unittest.main()

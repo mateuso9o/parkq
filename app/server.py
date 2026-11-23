@@ -184,7 +184,8 @@ def request_otp(body: OtpIn, conn=Depends(get_db)):
     if mailer.is_configured(MAIL):
         try:
             mailer.send_otp(email, code, OTP_TTL // 60, MAIL)
-        except mailer.MailError:
+        except mailer.MailError as e:
+            print(f"MAIL_FAILED: {e}", flush=True)     # shows in the Render log; never contains credentials
             conn.execute("UPDATE otps SET used=1 WHERE email=? AND used=0", (email,))
             raise ApiError(502, "MAIL_FAILED", "ส่งอีเมลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง")
         res["via"] = "email"
