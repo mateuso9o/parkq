@@ -30,5 +30,19 @@ class TestTranslation(unittest.TestCase):
         self.assertEqual((row["id"], row[0], row[1], dict(row)), (7, 7, "x", {"id": 7, "name": "x"}))
 
 
+class TestResetGuard(unittest.TestCase):
+    def test_UT45_reset_refused_on_real_postgres(self):
+        # Arrange: pretend DATABASE_URL points at Postgres; nothing may be connected or dropped
+        orig = (db.IS_PG, db.connect)
+        db.IS_PG = True
+        db.connect = lambda: self.fail("must not connect when the reset is refused")
+        try:
+            # Act / Assert
+            with self.assertRaises(RuntimeError):
+                db.init(reset=True)
+        finally:
+            db.IS_PG, db.connect = orig
+
+
 if __name__ == "__main__":
     unittest.main()

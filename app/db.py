@@ -172,6 +172,9 @@ def connect():
 
 
 def init(reset: bool = False):
+    if reset and IS_PG and os.environ.get("PARKQ_ALLOW_PG_RESET") != "1":
+        raise RuntimeError("Refusing to reset a PostgreSQL database (it drops the whole schema). "
+                           "Unset DATABASE_URL to use SQLite, or set PARKQ_ALLOW_PG_RESET=1 if you really mean it.")
     if reset and IS_PG:
         conn = connect()
         conn.executescript("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")

@@ -8,6 +8,7 @@ from pathlib import Path
 _tmp = tempfile.mkdtemp()
 os.environ["PARKQ_DB"] = str(Path(_tmp) / "otp_delivery.db")
 os.environ["PARKQ_DEV"] = "0"
+os.environ["DATABASE_URL"] = ""   # tests use their own SQLite file; never a real Postgres
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
 
 from fastapi.testclient import TestClient  # noqa: E402
