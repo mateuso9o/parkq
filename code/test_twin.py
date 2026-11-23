@@ -117,6 +117,13 @@ class TestTwinEndpoint(unittest.TestCase):
         self.assertEqual(d["window"], 1800)
         self.assertEqual(self.client.get("/api/twin/LOT02?window=abc").status_code, 422)
 
+    def test_IT39_twin_page_served(self):
+        r = self.client.get("/twin")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("text/html", r.headers["content-type"])
+        self.assertIn("ParkQ Digital Twin", r.text)
+        self.assertEqual(self.client.get("/static/vendor/three.min.js").status_code, 200)
+
     def test_IT38_lot_without_board_online_false(self):
         d = self.client.get("/api/twin/LOT01").json()
         self.assertFalse(d["lot"]["online"])

@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<script>try{var t=localStorage.getItem("parkq_theme")||(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark");document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme="dark";}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ParkQ Digital Twin</title>
+<link rel="preload" href="/static/fonts/bai-jamjuree-latin-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/static/css/app.css">
+<style>
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--flap); color: var(--letter); overflow: hidden; font-family: var(--font); }
+  #stage { position: fixed; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+  #stage:active { cursor: grabbing; }
+  .hud { position: fixed; z-index: 5; pointer-events: none; }
+  .hud > * { pointer-events: auto; }
+  .card { background: var(--bar); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+          border: 1px solid var(--steel-line); border-radius: 18px; box-shadow: var(--shadow); }
+  .top-left { top: 16px; left: 16px; padding: 14px 18px; max-width: min(460px, calc(100vw - 32px)); }
+  .brand { font: 700 13px var(--font-board); letter-spacing: .16em; color: var(--amber); text-transform: uppercase; }
+  .lot { font: 700 22px/1.25 var(--font-board); margin-top: 4px; }
+  .tags { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+  .pill { display: inline-flex; align-items: center; gap: 7px; border-radius: 999px; padding: 4px 12px; font: 700 14px var(--font-board); background: var(--panel-2); border: 1px solid var(--steel-line); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--steel-mid); }
+  .pill.ok .dot { background: #3ddc84; box-shadow: 0 0 0 3px rgba(61,220,132,.22); }
+  .pill.bad .dot { background: var(--red); }
+  .pill.live .dot { background: var(--red); animation: pulse 1.4s ease-in-out infinite; }
+  .pill.replay { color: var(--amber); border-color: var(--amber); }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .top-right { top: 16px; right: 16px; display: flex; gap: 8px; }
+  .btn { min-height: 44px; min-width: 44px; padding: 0 16px; border-radius: 14px; border: 1px solid var(--steel-line); background: var(--bar);
+         color: var(--letter); font: 700 15px var(--font-board); cursor: pointer; backdrop-filter: blur(10px); }
+  .btn:hover { background: var(--hover); }
+  .btn:focus-visible, input[type=range]:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
+  .btn.primary { background: var(--amber); color: var(--on-amber); border-color: var(--amber); }
+  .board { bottom: 16px; left: 16px; padding: 14px 20px; display: flex; flex-direction: column; gap: 10px; width: min(330px, calc(100vw - 32px)); }
+  .free-row { display: flex; align-items: flex-end; gap: 12px; }
+  .free-num { font: 700 64px/0.9 var(--font-board); color: var(--letter); background: var(--flap); border: 1px solid var(--steel-line);
+              border-radius: 10px; padding: 8px 16px 6px; min-width: 1.4em; text-align: center; font-variant-numeric: tabular-nums; }
+  .free-cap { font: 600 18px var(--font-board); color: var(--steel-light); padding-bottom: 6px; }
+  .ticker { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 14px; color: var(--steel-light); min-height: 5.2em; }
+  .ticker li { display: flex; gap: 10px; }
+  .ticker time { font: 600 13px var(--font-board); color: var(--amber); flex: none; font-variant-numeric: tabular-nums; }
+  .timeline { bottom: 16px; left: 372px; right: 16px; padding: 12px 18px; display: flex; gap: 12px; align-items: center; }
+  .timeline input[type=range] { flex: 1; min-width: 0; accent-color: var(--amber); height: 32px; }
+  .tl-label { font: 700 15px var(--font-board); min-width: 5.5em; text-align: right; font-variant-numeric: tabular-nums; }
+  .toast { top: 84px; right: 16px; }
+  .msg { position: fixed; inset: 0; display: none; place-items: center; text-align: center; padding: 32px; z-index: 20; background: var(--flap); }
+  .msg.show { display: grid; }
+  .msg h1 { font: 700 26px var(--font-board); margin: 0 0 8px; }
+  @media (max-width: 860px) {
+    .timeline { left: 16px; bottom: 16px; right: 16px; }
+    .board { bottom: 84px; }
+    .free-num { font-size: 48px; }
+    .top-left .lot { font-size: 18px; }
+  }
+  @media (max-height: 560px) { .ticker { display: none; } }
+  @media (prefers-reduced-motion: reduce) { .pill.live .dot { animation: none; } }
+</style>
+</head>
+<body>
+<canvas id="stage" aria-label="แบบจำลอง 3 มิติของลานจอดรถ"></canvas>
+
+<section class="hud card top-left" aria-live="polite">
+  <div class="brand">ParkQ · Digital Twin</div>
+  <div class="lot" id="lotName">กำลังโหลด…</div>
+  <div class="tags">
+    <span class="pill" id="netPill"><span class="dot"></span><span id="netText">กำลังเชื่อมต่อ</span></span>
+    <span class="pill live" id="modePill"><span class="dot"></span><span id="modeText">สด</span></span>
+    <span class="pill bad" id="reconnect" hidden><span class="dot"></span>กำลังเชื่อมต่อใหม่…</span>
+  </div>
+</section>
+
+<div class="hud top-right">
+  <button class="btn" id="themeBtn" type="button" aria-label="สลับธีมมืด/สว่าง">ธีม</button>
+</div>
+
+<section class="hud card board" aria-label="สถานะช่องจอด">
+  <div class="free-row"><div class="free-num" id="freeNum">–</div><div class="free-cap">ว่าง / <span id="capNum">–</span> ช่อง</div></div>
+  <ul class="ticker" id="ticker"></ul>
+</section>
+
+<section class="hud card timeline" aria-label="ย้อนดูเหตุการณ์">
+  <button class="btn" id="playBtn" type="button" aria-label="เล่นย้อนดู">▶</button>
+  <input id="slider" type="range" min="0" max="600" step="1" value="600" aria-label="เลื่อนเวลาย้อนหลัง 10 นาที">
+  <div class="tl-label" id="tlLabel">สด</div>
+  <button class="btn primary" id="liveBtn" type="button">กลับไปสด</button>
+</section>
+
+<div class="msg" id="noGl"><div><h1>เครื่องนี้แสดงภาพ 3 มิติไม่ได้</h1><p>เบราว์เซอร์ไม่รองรับ WebGL ลองเปิดด้วย Chrome หรือ Edge รุ่นใหม่</p></div></div>
+
+<script src="/static/vendor/three.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  var params = new URLSearchParams(location.search);
+  var LOT = (params.get("lot") || "LOT02").replace(/[^A-Za-z0-9_-]/g, "");
+  var WINDOW = 600, OPEN_SEC = 3, POLL_MS = 1000;
+  var reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ---------- scene constants ----------
+  var SLOT_X = [-4.5, -1.5, 1.5, 4.5], SLOT_Z = -2.5, ENTRY_X = -9, EXIT_X = 9;
+  var ENTRY_LANE_Z = 4.4, EXIT_LANE_Z = 2.5, START_X = -15, END_X = 15;
+  var CAR_COLORS = [0xf2f2f2, 0xffb000, 0x4f8fd6, 0xc4262e];
+
+  var renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas: $("stage"), antialias: true, alpha: false });
+  } catch (e) { $("noGl").classList.add("show"); return; }
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
+  var cam = { az: 0.35, el: 0.9, dist: 30, tx: 0, ty: 0, tz: 1 };
+  function placeCamera(t) {
+    var sway = reduced ? 0 : Math.sin(t / 5200) * 0.05;
+    var a = cam.az + sway;
+    camera.position.set(cam.tx + cam.dist * Math.sin(a) * Math.cos(cam.el),
+                        cam.ty + cam.dist * Math.sin(cam.el),
+                        cam.tz + cam.dist * Math.cos(a) * Math.cos(cam.el));
+    camera.lookAt(cam.tx, cam.ty, cam.tz);
+  }
+
+  var amb = new THREE.HemisphereLight(0xffffff, 0x445066, 0.75); scene.add(amb);
+  var sun = new THREE.DirectionalLight(0xffffff, 0.85);
+  sun.position.set(-8, 16, 10); sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.camera.left = -18; sun.shadow.camera.right = 18; sun.shadow.camera.top = 14; sun.shadow.camera.bottom = -10;
+  scene.add(sun);
+
+  var mats = {};
+  function mat(name, color, opts) {
+    mats[name] = new THREE.MeshStandardMaterial(Object.assign({ color: color, roughness: 0.85, metalness: 0.05 }, opts || {}));
+    return mats[name];
+  }
+  mat("ground", 0x1c1f23); mat("road", 0x2a2d31); mat("line", 0xf2f2f2); mat("free", 0x3ddc84, { emissive: 0x1a6b3f, emissiveIntensity: 0.55, roughness: 0.6 });
+  mat("busy", 0xff5a5f, { emissive: 0x7a1d22, emissiveIntensity: 0.55, roughness: 0.6 }); mat("post", 0x8d9197); mat("stripeA", 0xf2f2f2); mat("stripeB", 0xc4262e);
+  mat("glass", 0x1b2330, { roughness: 0.3, metalness: 0.4 }); mat("tire", 0x0b0b0b);
+
+  function box(w, h, d, m, x, y, z, shadow) {
+    var o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z);
+    if (shadow !== false) { o.castShadow = true; o.receiveShadow = true; }
+    scene.add(o); return o;
+  }
+  var ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 40), mats.ground);
+  ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+  var lot = new THREE.Mesh(new THREE.PlaneGeometry(21, 8.6), mats.road);
+  lot.rotation.x = -Math.PI / 2; lot.position.set(0, 0.01, -2.2); lot.receiveShadow = true; scene.add(lot);
+  var road = new THREE.Mesh(new THREE.PlaneGeometry(34, 4.6), mats.road);
+  road.rotation.x = -Math.PI / 2; road.position.set(0, 0.012, 3.5); road.receiveShadow = true; scene.add(road);
+  box(34, 0.012, 0.1, mats.line, 0, 0.02, 3.45, false);                   // lane divider
+
+  function labelTex(text, size, fg) {
+    var c = document.createElement("canvas"); c.width = 256; c.height = 128;
+    var g = c.getContext("2d"); g.fillStyle = fg; g.font = "700 " + size + "px 'Bai Jamjuree', sans-serif";
+    g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(text, 128, 64);
+    var t = new THREE.CanvasTexture(c); t.anisotropy = 4; return t;
+  }
+  function groundLabel(text, x, z, w, h, fg) {
+    var m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: labelTex(text, 84, fg), transparent: true }));
+    m.rotation.x = -Math.PI / 2; m.position.set(x, 0.035, z); scene.add(m); return m;
+  }
+
+  var slotMeshes = [];
+  for (var i = 0; i < 4; i++) {
+    var f = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 4.9), mats.free.clone());
+    f.rotation.x = -Math.PI / 2; f.position.set(SLOT_X[i], 0.03, SLOT_Z); f.receiveShadow = true; scene.add(f);
+    slotMeshes.push(f);
+    box(0.08, 0.012, 4.9, mats.line, SLOT_X[i] - 1.5, 0.04, SLOT_Z, false);
+    groundLabel(String(i + 1), SLOT_X[i], SLOT_Z + 1.9, 1.4, 0.7, "#f2f2f2");
+  }
+  box(0.08, 0.012, 4.9, mats.line, SLOT_X[3] + 1.5, 0.04, SLOT_Z, false);
+  groundLabel("ENTRY ▶", ENTRY_X - 4.6, ENTRY_LANE_Z, 3.4, 1.7, "#ffb000");
+  groundLabel("▶ EXIT", EXIT_X + 4.6, EXIT_LANE_Z, 3.4, 1.7, "#ffb000");
+
+  // ---------- barriers ----------
+  function makeBarrier(x, pivotZ, dirZ, openAngle) {
+    box(0.5, 1.2, 0.5, mats.post, x, 0.6, pivotZ);
+    var g = new THREE.Group(); g.position.set(x, 1.15, pivotZ); scene.add(g);
+    var segs = 8, len = 2.3, sl = len / segs;
+    for (var s = 0; s < segs; s++) {
+      var seg = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, sl * 0.98), s % 2 ? mats.stripeB : mats.stripeA);
+      seg.position.set(0, 0, dirZ * (0.25 + sl * (s + 0.5))); seg.castShadow = true; g.add(seg);
+    }
+    var lamp = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 12), new THREE.MeshStandardMaterial({ color: 0xff5a5f, emissive: 0xff2a30, emissiveIntensity: 1 }));
+    lamp.position.set(x, 1.35, pivotZ); scene.add(lamp);
+    return { group: g, lamp: lamp, angle: 0, target: 0, openAngle: openAngle, x: x };
+  }
+  var barriers = {
+    "in": makeBarrier(ENTRY_X, 5.7, -1, Math.PI / 2),
+    "out": makeBarrier(EXIT_X, 1.2, 1, -Math.PI / 2)
+  };
+
+  // ---------- cars ----------
+  function makeCarMesh(color) {
+    var g = new THREE.Group();
+    var body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.5, 3.2), new THREE.MeshStandardMaterial({ color: color, roughness: 0.45, metalness: 0.25 }));
+    body.position.y = 0.55; body.castShadow = true; g.add(body);
+    var cab = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.42, 1.7), mats.glass);
+    cab.position.set(0, 1.0, -0.15); cab.castShadow = true; g.add(cab);
+    [[-0.78, 1.0], [0.78, 1.0], [-0.78, -1.0], [0.78, -1.0]].forEach(function (p) {
+      var w = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.33, 0.24, 14), mats.tire);
+      w.rotation.z = Math.PI / 2; w.position.set(p[0], 0.33, p[1]); g.add(w);
+    });
+    return g;
+  }
+  var cars = [];
+  for (i = 0; i < 4; i++) {
+    var cm = makeCarMesh(CAR_COLORS[i]); cm.visible = false; scene.add(cm);
+    cars.push({ mesh: cm, present: false, path: null, seg: 0, speed: 7, onDone: null, lane: null });
+  }
+  function drive(car, pts, lane, done) {
+    car.path = pts; car.seg = 0; car.lane = lane; car.onDone = done || null;
+    car.mesh.position.set(pts[0][0], 0, pts[0][1]); car.mesh.visible = true;
+  }
+  function headTo(car, from, to) { car.mesh.rotation.y = Math.atan2(to[0] - from[0], to[1] - from[1]); }
+  function stepCar(car, dt) {
+    if (!car.path) return;
+    var p = car.mesh.position, to = car.path[car.seg + 1];
+    if (!to) { car.path = null; if (car.onDone) car.onDone(); return; }
+    var dx = to[0] - p.x, dz = to[1] - p.z, d = Math.hypot(dx, dz), st = car.speed * dt;
+    car.mesh.rotation.y = Math.atan2(dx, dz);
+    if (d <= st) { p.x = to[0]; p.z = to[1]; car.seg++; } else { p.x += dx / d * st; p.z += dz / d * st; }
+  }
+  function parkInstant(k) { var c = cars[k]; c.path = null; c.present = true; c.mesh.visible = true; c.mesh.position.set(SLOT_X[k], 0, SLOT_Z); c.mesh.rotation.y = Math.PI; }
+  function removeInstant(k) { var c = cars[k]; c.path = null; c.present = false; c.mesh.visible = false; }
+  function driveIn(k) {
+    var c = cars[k]; c.present = true;
+    drive(c, [[START_X, ENTRY_LANE_Z], [SLOT_X[k], ENTRY_LANE_Z], [SLOT_X[k], SLOT_Z]], "in", function () { c.mesh.rotation.y = Math.PI; });
+  }
+  function driveOut(k) {
+    var c = cars[k]; c.present = false;
+    drive(c, [[SLOT_X[k], SLOT_Z], [SLOT_X[k], EXIT_LANE_Z], [END_X, EXIT_LANE_Z]], "out", function () { c.mesh.visible = false; });
+  }
+
+  // ---------- data model ----------
+  var data = null, offset = 0, failCount = 0, mode = "live", replayT = 0, playing = false, shown = null, jump = true;
+  function serverNow() { return Date.now() / 1000 + offset; }
+
+  function occAt(T) {                                   // slot occupancy at time T from the event list
+    var n = data.slots.length, occ = [];
+    var ev = data.events.filter(function (e) { return e.kind === "slot"; });
+    for (var s = 1; s <= n; s++) {
+      var mine = ev.filter(function (e) { return e.slot_no === s; });
+      var last = null; mine.forEach(function (e) { if (e.at <= T) last = e; });
+      if (last) occ.push(last.occupied);
+      else if (mine.length) occ.push(mine[0].occupied ? 0 : 1);          // history only stores changes: before the first one it was the opposite
+      else occ.push(data.slots[s - 1].occupied);
+    }
+    return occ;
+  }
+  function gateOpenAt(gate, T) {
+    return data.events.some(function (e) { return e.kind === "gate_open" && e.gate === gate && e.at <= T && T < e.at + OPEN_SEC; });
+  }
+  function currentT() { return mode === "live" ? serverNow() : replayT; }
+
+  function pickState() {
+    var T = currentT();
+    var occ = mode === "live" ? data.slots.map(function (s) { return s.occupied; }) : occAt(T);
+    return { T: T, occ: occ, gates: { "in": gateOpenAt("in", T), "out": gateOpenAt("out", T) } };
+  }
+
+  function applyOcc(occ, instant) {
+    for (var k = 0; k < cars.length && k < occ.length; k++) {
+      var want = !!occ[k], c = cars[k];
+      slotMeshes[k].material.color.set(want ? 0xff5a5f : 0x3ddc84);
+      slotMeshes[k].material.emissive.set(want ? 0x7a1d22 : 0x1a6b3f);
+      if (want === c.present && !(instant && want && c.path)) continue;
+      if (instant) { want ? parkInstant(k) : removeInstant(k); }
+      else { want ? driveIn(k) : driveOut(k); }
+    }
+  }
+
+  function carNear(gateName) {
+    var b = barriers[gateName];
+    return cars.some(function (c) { return c.path && c.lane === gateName && Math.abs(c.mesh.position.x - b.x) < 2.8; });
+  }
+
+  // ---------- HUD ----------
+  var TH = { slot: function (e) { return "ช่อง " + e.slot_no + (e.occupied ? " มีรถจอด" : " ว่าง"); },
+             gate_open: function (e) { return "ไม้กั้น" + (e.gate === "in" ? "ขาเข้า" : "ขาออก") + "เปิด"; },
+             car_in: function () { return "รถเข้าลาน"; }, car_out: function () { return "รถออกจากลาน"; } };
+  var fmt = new Intl.DateTimeFormat("th-TH", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+  var lastTickerKey = "";
+  function renderHud(st) {
+    var free = st.occ.filter(function (o) { return !o; }).length;
+    $("freeNum").textContent = String(free);
+    $("capNum").textContent = String(data.lot.capacity);
+    var past = data.events.filter(function (e) { return e.at <= st.T; }).slice(-5).reverse();
+    var key = past.map(function (e) { return e.at + e.kind + (e.slot_no || e.gate || ""); }).join("|");
+    if (key !== lastTickerKey) {
+      lastTickerKey = key;
+      var ul = $("ticker"); ul.textContent = "";
+      past.forEach(function (e) {
+        var li = document.createElement("li"), t = document.createElement("time"), s = document.createElement("span");
+        t.textContent = fmt.format(new Date(e.at * 1000)); s.textContent = TH[e.kind](e);
+        li.appendChild(t); li.appendChild(s); ul.appendChild(li);
+      });
+      if (!past.length) { var li0 = document.createElement("li"); li0.textContent = "ยังไม่มีเหตุการณ์ใน 10 นาทีที่ผ่านมา"; ul.appendChild(li0); }
+    }
+    var ago = Math.max(0, Math.round(serverNow() - st.T));
+    $("tlLabel").textContent = mode === "live" ? "สด" : "-" + String(Math.floor(ago / 60)).padStart(2, "0") + ":" + String(ago % 60).padStart(2, "0");
+    if (document.activeElement !== $("slider")) $("slider").value = String(Math.max(0, Math.min(WINDOW, WINDOW - ago)));
+  }
+  function renderStatic() {
+    $("lotName").textContent = data.lot.name;
+    var on = data.lot.online;
+    $("netPill").className = "pill " + (on ? "ok" : "bad");
+    $("netText").textContent = on ? "บอร์ดออนไลน์" : "ไม่มีบอร์ด / ออฟไลน์ (จำลอง)";
+  }
+  function setMode(m) {
+    mode = m; jump = true;
+    var live = m === "live";
+    $("modePill").className = "pill " + (live ? "live" : "replay");
+    $("modeText").textContent = live ? "สด" : "ย้อนดู";
+    $("liveBtn").hidden = live;
+    $("playBtn").textContent = playing ? "❚❚" : "▶";
+  }
+
+  // ---------- polling ----------
+  function poll() {
+    fetch("/api/twin/" + encodeURIComponent(LOT) + "?window=" + WINDOW, { cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (d) {
+        offset = d.now - Date.now() / 1000;
+        var first = !data; data = d; failCount = 0; $("reconnect").hidden = true;
+        renderStatic(); if (first) jump = true;
+      })
+      .catch(function () { failCount++; if (failCount >= 2) $("reconnect").hidden = false; })
+      .then(function () { setTimeout(poll, POLL_MS); });
+  }
+
+  // ---------- controls ----------
+  $("slider").addEventListener("input", function () {
+    if (!data) return;
+    var v = +this.value;
+    if (v >= WINDOW) { playing = false; setMode("live"); return; }
+    playing = false; replayT = serverNow() - (WINDOW - v); setMode("replay"); jump = true;
+  });
+  $("liveBtn").addEventListener("click", function () { playing = false; setMode("live"); $("slider").value = String(WINDOW); });
+  $("playBtn").addEventListener("click", function () {
+    if (!data) return;
+    if (mode === "live") { replayT = serverNow() - WINDOW; setMode("replay"); }
+    playing = !playing; $("playBtn").textContent = playing ? "❚❚" : "▶"; jump = true;
+  });
+  $("themeBtn").addEventListener("click", function () {
+    var next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("parkq_theme", next); } catch (e) { /* storage may be blocked */ }
+    applyTheme();
+  });
+  function applyTheme() {
+    var cs = getComputedStyle(document.documentElement), light = document.documentElement.dataset.theme === "light";
+    var bg = cs.getPropertyValue("--flap").trim() || (light ? "#f3f4f7" : "#0b0b0b");
+    scene.background = new THREE.Color(bg); scene.fog = new THREE.Fog(new THREE.Color(bg), 40, 90);
+    mats.ground.color.set(light ? 0xdfe3e9 : 0x1c1f23); mats.road.color.set(light ? 0xc9ced6 : 0x2a2d31);
+    mats.line.color.set(light ? 0x14171c : 0xf2f2f2);
+    amb.intensity = light ? 1.0 : 0.75; sun.intensity = light ? 0.75 : 0.85;
+  }
+
+  // drag to orbit, wheel / pinch to zoom
+  var drag = null, touches = {};
+  var stage = $("stage");
+  stage.addEventListener("pointerdown", function (e) { stage.setPointerCapture(e.pointerId); touches[e.pointerId] = e; drag = { x: e.clientX, y: e.clientY }; });
+  stage.addEventListener("pointermove", function (e) {
+    if (!(e.pointerId in touches)) return;
+    var ids = Object.keys(touches);
+    if (ids.length === 2) {
+      var o = touches[ids[0] === String(e.pointerId) ? ids[1] : ids[0]];
+      var before = Math.hypot(touches[e.pointerId].clientX - o.clientX, touches[e.pointerId].clientY - o.clientY);
+      var after = Math.hypot(e.clientX - o.clientX, e.clientY - o.clientY);
+      cam.dist = Math.max(14, Math.min(48, cam.dist * (before / (after || before))));
+    } else if (drag) {
+      cam.az -= (e.clientX - drag.x) * 0.006; cam.el = Math.max(0.35, Math.min(1.35, cam.el + (e.clientY - drag.y) * 0.005));
+      drag = { x: e.clientX, y: e.clientY };
+    }
+    touches[e.pointerId] = e;
+  });
+  function endPtr(e) { delete touches[e.pointerId]; drag = null; }
+  stage.addEventListener("pointerup", endPtr); stage.addEventListener("pointercancel", endPtr);
+  stage.addEventListener("wheel", function (e) { e.preventDefault(); cam.dist = Math.max(14, Math.min(48, cam.dist * (1 + Math.sign(e.deltaY) * 0.08))); }, { passive: false });
+
+  function resize() {
+    var w = innerWidth, h = innerHeight;
+    renderer.setSize(w, h, false); camera.aspect = w / h;
+    cam.dist = Math.max(cam.dist, w < 700 ? 38 : 0); camera.updateProjectionMatrix();
+  }
+  addEventListener("resize", resize);
+
+  // ---------- main loop ----------
+  var last = performance.now();
+  function frame(now) {
+    var dt = Math.min(0.1, (now - last) / 1000); last = now;
+    if (data) {
+      if (mode === "replay" && playing) { replayT += dt * 4; if (replayT >= serverNow()) { playing = false; setMode("live"); } }
+      var st = pickState();
+      var instant = jump || reduced; jump = false;
+      var sig = st.occ.join("");
+      if (instant || sig !== shown) { applyOcc(st.occ, instant); shown = sig; }
+      ["in", "out"].forEach(function (g) {
+        var b = barriers[g];
+        b.target = (st.gates[g] || carNear(g)) ? b.openAngle : 0;
+        b.angle += (b.target - b.angle) * Math.min(1, dt * (reduced ? 30 : 9));
+        b.group.rotation.x = b.angle;
+        b.lamp.material.color.set(b.target ? 0x3ddc84 : 0xff5a5f); b.lamp.material.emissive.set(b.target ? 0x1fbf6a : 0xff2a30);
+      });
+      cars.forEach(function (c) { stepCar(c, dt); });
+      renderHud(st);
+    }
+    placeCamera(now); renderer.render(scene, camera); requestAnimationFrame(frame);
+  }
+
+  applyTheme(); resize(); setMode("live"); $("liveBtn").hidden = true;
+  poll(); requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
