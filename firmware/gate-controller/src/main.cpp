@@ -10,6 +10,14 @@
 #include <ESP32Servo.h>
 #include "pins.h"
 
+#ifdef MINIMAL_DEMO
+// Demo with nothing wired (env:minimal): the BOOT button (GPIO0) acts as slot sensor 1 (held = car present),
+// GPIO2 (the blue LED on many ESP32 boards) acts as the green "barrier open" light, other slots read "free".
+#undef PIN_LED_G
+#define PIN_LED_G 2
+#define PIN_BOOT_BTN 0
+#endif
+
 // Relative path on purpose: a bare "config.h" can match a header inside the ESP32 framework.
 #if __has_include("../include/config.h")
 #include "../include/config.h"
@@ -205,7 +213,11 @@ static void checkSlots() {
   int cur[4];
   bool changed = false;
   for (int i = 0; i < 4; i++) {
+#ifdef MINIMAL_DEMO
+    cur[i] = (i == 0 && digitalRead(PIN_BOOT_BTN) == LOW) ? 1 : 0;
+#else
     cur[i] = digitalRead(SLOT_PINS[i]) == LOW ? 1 : 0;  // LOW = car present
+#endif
     if (cur[i] != lastSlots[i]) changed = true;
   }
   bool heartbeat = millis() - lastSlotsSent >= SLOTS_HEARTBEAT_MS;
@@ -247,6 +259,9 @@ void setup() {
   digitalWrite(PIN_LED_R, LOW);
   digitalWrite(PIN_BUZZER, LOW);
   for (int p : SLOT_PINS) pinMode(p, INPUT);   // GPIO34-39: no pull-ups, the IR module drives the line
+#ifdef MINIMAL_DEMO
+  pinMode(PIN_BOOT_BTN, INPUT_PULLUP);
+#endif
 
   for (Gate& g : gates) { g.servo.attach(g.servoPin); g.servo.write(SERVO_CLOSED); }
   Serial2.begin(QR_BAUD, SERIAL_8N1, PIN_QR_IN_RX, PIN_QR_IN_TX);

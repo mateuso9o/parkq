@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<script>try{var t=localStorage.getItem("parkq_theme")||(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark");document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme="dark";}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ParkQ Virtual Gate Controller</title>
+<link rel="preload" href="/static/fonts/bai-jamjuree-latin-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/static/css/app.css">
+<style>
+  body { background: var(--panel-2); color: var(--letter); margin: 0; font-family: var(--font); }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+  .banner { background: var(--warn-soft); color: var(--letter); border: 1px solid var(--amber); border-radius: 14px; padding: 12px 16px; font-size: 15px; }
+  .banner b { font-family: var(--font-board); }
+  h1 { font: 700 22px var(--font-board); margin: 0; }
+  .brand { font: 700 13px var(--font-board); letter-spacing: .16em; color: var(--amber); text-transform: uppercase; }
+  .grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--steel-line); border-radius: 18px; padding: 18px 20px; box-shadow: var(--shadow); }
+  .card h2 { font: 700 16px var(--font-board); margin: 0 0 12px; color: var(--steel-light); letter-spacing: .04em; }
+  .gates { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .gate { text-align: center; }
+  .gate .name { font: 700 15px var(--font-board); margin-bottom: 8px; }
+  .scene { position: relative; height: 120px; background: var(--panel-2); border-radius: 12px; overflow: hidden; border: 1px solid var(--steel-line); }
+  .post { position: absolute; left: 22px; bottom: 14px; width: 18px; height: 52px; background: var(--steel-mid); border-radius: 4px; }
+  .arm { position: absolute; left: 31px; bottom: 58px; width: 120px; height: 10px; transform-origin: 0 50%; transform: rotate(0deg);
+         transition: transform .4s ease; border-radius: 5px;
+         background: repeating-linear-gradient(90deg, #f2f2f2 0 14px, #c4262e 14px 28px); }
+  .gate.open .arm { transform: rotate(-90deg); }
+  .angle { margin-top: 8px; font: 700 14px var(--font-board); color: var(--steel-light); }
+  .leds { display: flex; gap: 22px; align-items: center; margin-top: 4px; }
+  .led { display: grid; justify-items: center; gap: 6px; font: 600 13px var(--font-board); color: var(--steel-light); }
+  .led i { width: 26px; height: 26px; border-radius: 50%; background: var(--steel); border: 2px solid var(--steel-mid); transition: background .1s, box-shadow .1s; }
+  .led.on.g i { background: #3ddc84; box-shadow: 0 0 14px 3px rgba(61,220,132,.7); border-color: #3ddc84; }
+  .led.on.r i { background: #ff5a5f; box-shadow: 0 0 14px 3px rgba(255,90,95,.7); border-color: #ff5a5f; }
+  .led.on.b i { background: var(--amber); box-shadow: 0 0 14px 3px rgba(255,176,0,.7); border-color: var(--amber); }
+  .slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .slot { border: 1px solid var(--steel-line); border-radius: 14px; padding: 12px 8px; text-align: center; background: var(--panel-2); }
+  .slot .n { font: 700 14px var(--font-board); color: var(--steel-light); }
+  .slot .st { font: 700 15px var(--font-board); margin: 6px 0 10px; }
+  .slot.busy { border-color: #ff5a5f; } .slot.busy .st { color: #ff5a5f; }
+  .slot.free .st { color: #3ddc84; }
+  .btn { min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--steel-line); background: var(--bar); color: var(--letter); font: 700 14px var(--font-board); cursor: pointer; }
+  .btn:hover { background: var(--hover); }
+  .btn:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
+  .btn.primary { background: var(--amber); color: var(--on-amber); border-color: var(--amber); }
+  pre#log { margin: 0; height: 240px; overflow: auto; background: #0b0b0b; color: #d7f5dd; border-radius: 12px; padding: 12px; font: 13px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; }
+  .status { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+  .pill { display: inline-flex; gap: 7px; align-items: center; border-radius: 999px; padding: 4px 12px; font: 700 14px var(--font-board); background: var(--panel-2); border: 1px solid var(--steel-line); }
+  .pill .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--steel-mid); }
+  .pill.ok .dot { background: #3ddc84; } .pill.bad .dot { background: #ff5a5f; }
+  [hidden] { display: none !important; }
+  .hint { color: var(--steel-light); font-size: 14px; }
+  .hint code { font-family: ui-monospace, Consolas, monospace; background: var(--panel-2); padding: 1px 6px; border-radius: 6px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  @media (prefers-reduced-motion: reduce) { .arm { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">ParkQ · IoT</div>
+    <h1>ParkQ Virtual Gate Controller</h1>
+  </header>
+  <div class="banner"><b>จำลอง (simulation)</b> — หน้านี้ไม่ใช่ฮาร์ดแวร์จริง มันทำตัวเหมือนเฟิร์มแวร์ ESP32 ของเราทุกอย่าง:
+    ใช้ <b>device key</b> เดียวกัน, ดึงคำสั่งทุก 1 วินาที, ส่งสถานะช่องจอดเมื่อเปลี่ยนและทุก 30 วินาที, เปิดไม้กั้น 3 วินาที ผ่าน REST API เส้นเดียวกับบอร์ดจริง</div>
+
+  <div class="status">
+    <span class="pill" id="net"><span class="dot"></span><span id="netText">ยังไม่เริ่ม</span></span>
+    <span class="pill"><span id="lotText">LOT02</span></span>
+    <button class="btn primary" id="startBtn" type="button">เริ่มทำงาน</button>
+    <button class="btn" id="stopBtn" type="button" hidden>หยุด</button>
+  </div>
+  <p class="hint" id="keyHint" hidden>เปิดหน้านี้ด้วย <code>/device?lot=LOT02&amp;key=DEVICE_KEY</code> (คีย์ไม่ได้ฝังไว้ในหน้า เพื่อไม่ให้ใครเปิดแล้วควบคุมอุปกรณ์ได้)</p>
+
+  <div class="grid">
+    <section class="card">
+      <h2>ไม้กั้น (servo 0° ปิด / 90° เปิด)</h2>
+      <div class="gates">
+        <div class="gate" id="gate-in"><div class="name">ทางเข้า (GPIO18)</div><div class="scene"><div class="post"></div><div class="arm"></div></div><div class="angle" id="ang-in">0°</div></div>
+        <div class="gate" id="gate-out"><div class="name">ทางออก (GPIO19)</div><div class="scene"><div class="post"></div><div class="arm"></div></div><div class="angle" id="ang-out">0°</div></div>
+      </div>
+      <div class="leds" style="margin-top:16px">
+        <div class="led g" id="ledG"><i></i>LED เขียว (23)</div>
+        <div class="led r" id="ledR"><i></i>LED แดง (22)</div>
+        <div class="led b" id="buzz"><i></i>บัซเซอร์ (4)</div>
+        <button class="btn" id="soundBtn" type="button" aria-pressed="false">เสียง: ปิด</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>เซนเซอร์ IR ช่องจอด (GPIO34 / 35 / 36 / 39)</h2>
+      <div class="slots" id="slots"></div>
+      <p class="hint">กดปุ่มแทนการเอารถ/มือไปบังเซนเซอร์ (LOW = มีรถ) เมื่อค่าเปลี่ยน อุปกรณ์จะส่งขึ้นเซิร์ฟเวอร์ทันที แล้วดูผลที่หน้า <code>/twin</code></p>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Serial monitor (เหมือนเทอร์มินัลของบอร์ดจริง)</h2>
+    <pre id="log" aria-live="off"></pre>
+  </section>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var params = new URLSearchParams(location.search);
+  var LOT = (params.get("lot") || "LOT02").replace(/[^A-Za-z0-9_-]/g, "");
+  var KEY = params.get("key") || "";
+  // same tunables as firmware/gate-controller/src/main.cpp
+  var POLL_MS = 1000, HEARTBEAT_MS = 30000, SCAN_MS = 100, OPEN_HOLD_MS = 3000, LED_MS = 1500, BEEP_SHORT_MS = 150, SERVO_OPEN = 90;
+  var $ = function (id) { return document.getElementById(id); };
+  $("lotText").textContent = LOT;
+  if (!KEY) { $("keyHint").hidden = false; $("startBtn").disabled = true; }
+
+  var slots = [0, 0, 0, 0], lastSent = [-1, -1, -1, -1], lastSentAt = 0, lastTry = 0;
+  var gates = { "in": { open: false, closeAt: 0 }, "out": { open: false, closeAt: 0 } };
+  var ledGOff = 0, buzzOff = 0, running = false, timers = [], audio = null, soundOn = false, failed = 0;
+
+  function log(line) {
+    var el = $("log"), t = ((performance.now() / 1000) | 0);
+    el.textContent += "[" + String(t).padStart(5, " ") + "s] " + line + "\n";
+    if (el.textContent.length > 12000) el.textContent = el.textContent.slice(-9000);
+    el.scrollTop = el.scrollHeight;
+  }
+
+  var slotEls = [];
+  for (var i = 0; i < 4; i++) {
+    (function (k) {
+      var d = document.createElement("div"); d.className = "slot free";
+      d.innerHTML = '<div class="n"></div><div class="st"></div>';
+      var b = document.createElement("button"); b.type = "button"; b.className = "btn";
+      b.addEventListener("click", function () { slots[k] = slots[k] ? 0 : 1; renderSlots(); });
+      d.appendChild(b); $("slots").appendChild(d); slotEls.push({ d: d, b: b });
+      d.querySelector(".n").textContent = "ช่อง " + (k + 1);
+    })(i);
+  }
+  function renderSlots() {
+    slotEls.forEach(function (s, k) {
+      s.d.className = "slot " + (slots[k] ? "busy" : "free");
+      s.d.querySelector(".st").textContent = slots[k] ? "มีรถ (LOW)" : "ว่าง (HIGH)";
+      s.b.textContent = slots[k] ? "เอารถออก" : "วางรถ";
+    });
+  }
+  renderSlots();
+
+  function beep(ms) {
+    buzzOff = performance.now() + ms; $("buzz").classList.add("on");
+    if (soundOn) {
+      try {
+        audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+        var o = audio.createOscillator(), g = audio.createGain();
+        o.frequency.value = 2200; g.gain.value = 0.05; o.connect(g); g.connect(audio.destination);
+        o.start(); o.stop(audio.currentTime + ms / 1000);
+      } catch (e) { /* audio blocked: the on-screen indicator still shows */ }
+    }
+  }
+  $("soundBtn").addEventListener("click", function () {
+    soundOn = !soundOn; this.textContent = "เสียง: " + (soundOn ? "เปิด" : "ปิด"); this.setAttribute("aria-pressed", String(soundOn));
+    if (soundOn) beep(BEEP_SHORT_MS);
+  });
+
+  function openGate(name) {
+    var g = gates[name], now = performance.now();
+    if (!g) return;
+    if (!g.open) {
+      g.open = true; log("barrier " + name + ": OPEN");
+      $("ledG").classList.add("on"); ledGOff = now + LED_MS; beep(BEEP_SHORT_MS);
+      $("gate-" + name).classList.add("open"); $("ang-" + name).textContent = SERVO_OPEN + "°";
+    }
+    g.closeAt = now + OPEN_HOLD_MS;
+  }
+  function tickOutputs() {
+    var now = performance.now();
+    Object.keys(gates).forEach(function (n) {
+      var g = gates[n];
+      if (g.open && now >= g.closeAt) { g.open = false; $("gate-" + n).classList.remove("open"); $("ang-" + n).textContent = "0°"; }
+    });
+    if (ledGOff && now >= ledGOff) { $("ledG").classList.remove("on"); ledGOff = 0; }
+    if (buzzOff && now >= buzzOff) { $("buzz").classList.remove("on"); buzzOff = 0; }
+  }
+
+  function api(method, path, body) {
+    return fetch(path, { method: method, headers: body ? { "Content-Type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined, cache: "no-store" })
+      .then(function (r) { return r.json().catch(function () { return null; }).then(function (j) { return { code: r.status, json: j }; }); })
+      .catch(function () { return { code: -1, json: null }; });
+  }
+  function setNet(ok) {
+    $("net").className = "pill " + (ok ? "ok" : "bad"); $("netText").textContent = ok ? "เชื่อมต่อเซิร์ฟเวอร์แล้ว" : "ติดต่อเซิร์ฟเวอร์ไม่ได้";
+  }
+
+  function pollCommands() {
+    api("GET", "/api/iot/" + encodeURIComponent(LOT) + "/commands?device_key=" + encodeURIComponent(KEY)).then(function (r) {
+      if (r.code !== 200) { failed++; setNet(false); log("commands: HTTP " + r.code); return; }
+      failed = 0; setNet(true);
+      (r.json || []).forEach(function (c) { if (c.command === "OPEN") openGate(c.gate); });
+    });
+  }
+  function checkSlots() {
+    var now = performance.now(), changed = false;
+    for (var i = 0; i < 4; i++) if (slots[i] !== lastSent[i]) changed = true;
+    var heartbeat = now - lastSentAt >= HEARTBEAT_MS;
+    if (!changed && !heartbeat) return;
+    if (lastTry && now - lastTry < 2000) return;           // back off 2 s after a failed POST (same as firmware)
+    lastTry = now;
+    var snap = slots.slice();
+    api("POST", "/api/iot/" + encodeURIComponent(LOT) + "/slots", { device_key: KEY, slots: snap }).then(function (r) {
+      log("slots: HTTP " + r.code);
+      if (r.code === 200) { lastSent = snap; lastSentAt = performance.now(); lastTry = 0; setNet(true); } else setNet(false);
+    });
+  }
+
+  function start() {
+    if (running || !KEY) return; running = true; lastSent = [-1, -1, -1, -1]; lastSentAt = 0; lastTry = 0;
+    $("startBtn").hidden = true; $("stopBtn").hidden = false;
+    log("ParkQ Virtual Gate Controller, lot " + LOT + " (simulation)"); log("Wi-Fi: connected (browser network)");
+    timers.push(setInterval(pollCommands, POLL_MS), setInterval(checkSlots, SCAN_MS), setInterval(tickOutputs, 50));
+    pollCommands();
+  }
+  function stop() {
+    running = false; timers.forEach(clearInterval); timers = [];
+    $("startBtn").hidden = false; $("stopBtn").hidden = true; $("netText").textContent = "หยุดแล้ว"; $("net").className = "pill"; log("stopped");
+  }
+  $("startBtn").addEventListener("click", start);
+  $("stopBtn").addEventListener("click", stop);
+})();
+</script>
+</body>
+</html>

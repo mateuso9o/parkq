@@ -947,7 +947,7 @@ def dev_login(role: str, conn=Depends(get_db)):
     return {"token": token, "user": dict(user)}
 
 
-for page, file in (("gate", "gate.html"), ("staff", "admin.html"), ("admin", "admin.html"), ("twin", "twin.html")):
+for page, file in (("gate", "gate.html"), ("staff", "admin.html"), ("admin", "admin.html"), ("twin", "twin.html"), ("device", "device.html")):
     app.add_api_route(f"/{page}", (lambda f=file: FileResponse(STATIC / f)), methods=["GET"], include_in_schema=False)
 app.add_api_route("/", lambda: FileResponse(STATIC / "index.html"), methods=["GET"], include_in_schema=False)
 app.mount("/static", StaticFiles(directory=STATIC), name="static")

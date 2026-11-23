@@ -124,6 +124,13 @@ class TestTwinEndpoint(unittest.TestCase):
         self.assertIn("ParkQ Digital Twin", r.text)
         self.assertEqual(self.client.get("/static/vendor/three.min.js").status_code, 200)
 
+    def test_IT40_device_page_served_without_key_inside(self):
+        r = self.client.get("/device")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("text/html", r.headers["content-type"])
+        self.assertIn("ParkQ Virtual Gate Controller", r.text)
+        self.assertNotIn("dev-key", r.text)          # the device key must come from the URL, never from the page source
+
     def test_IT38_lot_without_board_online_false(self):
         d = self.client.get("/api/twin/LOT01").json()
         self.assertFalse(d["lot"]["online"])
