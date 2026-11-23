@@ -656,6 +656,34 @@ def twin_record(conn, lot_id: str, slot_no: int, occupied: int) -> None:
         print(f"TWIN_HISTORY_FAILED: {e}", flush=True)
 
 
+TWIN_MAX_WINDOW = 1800
+
+
+@app.get("/api/twin/{lot_id}")
+def twin_state(lot_id: str, window: int = 600, conn=Depends(get_db)):
+    """Public, read-only state for the 3D digital twin. No plates, ticket ids or e-mails."""
+    lot = get_lot(conn, lot_id)
+    window = max(1, min(window, TWIN_MAX_WINDOW))
+    t = now()
+    since = t - window
+    counts = lot_counts(conn, lot)
+    slots = [{"no": r["slot_no"], "occupied": int(r["occupied"]), "updated_at": r["updated_at"]}
+             for r in conn.execute("SELECT slot_no, occupied, updated_at FROM slots WHERE lot_id=? ORDER BY slot_no", (lot_id,))]
+    events = []
+    for r in conn.execute("SELECT slot_no, occupied, at FROM slot_history WHERE lot_id=? AND at>=?", (lot_id, since)):
+        events.append({"at": r["at"], "kind": "slot", "slot_no": r["slot_no"], "occupied": int(r["occupied"])})
+    for r in conn.execute("SELECT gate, created_at FROM gate_commands WHERE lot_id=? AND command='OPEN' AND created_at>=?", (lot_id, since)):
+        events.append({"at": r["created_at"], "kind": "gate_open", "gate": r["gate"]})
+    for r in conn.execute("SELECT gate, at FROM gate_logs WHERE lot_id=? AND result='OK' AND at>=?", (lot_id, since)):
+        if r["gate"] in ("in", "out"):
+            events.append({"at": r["at"], "kind": "car_in" if r["gate"] == "in" else "car_out", "gate": r["gate"]})
+    events.sort(key=lambda e: e["at"])
+    return {"now": t, "window": window,
+            "lot": {"id": lot["id"], "name": lot["name"], "capacity": lot["capacity"],
+                    "online": bool(lot["device_id"]) and not counts["stale"]},
+            "slots": slots, "free": counts["free"], "events": events}
+
+
 @app.post("/api/iot/{lot_id}/slots")
 def iot_slots(lot_id: str, body: SlotsIn, conn=Depends(get_db)):
     lot = get_lot(conn, lot_id)
