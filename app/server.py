@@ -541,6 +541,7 @@ def set_demo_slot(conn, lot, occupied: bool):
     row = conn.execute("SELECT slot_no FROM slots WHERE lot_id=? AND occupied=? ORDER BY slot_no LIMIT 1",
                        (lot["id"], 0 if occupied else 1)).fetchone()
     if row:
+        twin_record(conn, lot["id"], row["slot_no"], int(occupied))
         conn.execute("UPDATE slots SET occupied=?, updated_at=? WHERE lot_id=? AND slot_no=?",
                      (int(occupied), now(), lot["id"], row["slot_no"]))
 
@@ -638,11 +639,29 @@ def check_device(lot, key):
         raise ApiError(403, "BAD_DEVICE_KEY", "device key ไม่ถูกต้อง")
 
 
+def record_slot(conn, lot_id: str, slot_no: int, occupied: int) -> None:
+    """Digital twin history: one row per real change of a slot (heartbeats with the same value add nothing)."""
+    row = conn.execute("SELECT occupied FROM slots WHERE lot_id=? AND slot_no=?", (lot_id, slot_no)).fetchone()
+    if row is not None and int(row["occupied"]) == int(occupied):
+        return
+    conn.execute("INSERT INTO slot_history(lot_id,slot_no,occupied,at) VALUES (?,?,?,?)",
+                 (lot_id, slot_no, int(occupied), now()))
+
+
+def twin_record(conn, lot_id: str, slot_no: int, occupied: int) -> None:
+    """Guarded call used on the sensor path: the twin must never be able to break it."""
+    try:
+        record_slot(conn, lot_id, slot_no, occupied)
+    except Exception as e:      # noqa: BLE001
+        print(f"TWIN_HISTORY_FAILED: {e}", flush=True)
+
+
 @app.post("/api/iot/{lot_id}/slots")
 def iot_slots(lot_id: str, body: SlotsIn, conn=Depends(get_db)):
     lot = get_lot(conn, lot_id)
     check_device(lot, body.device_key)
     for i, occ in enumerate(body.slots[: lot["capacity"]], 1):
+        twin_record(conn, lot_id, i, int(bool(occ)))
         conn.execute("UPDATE slots SET occupied=?, updated_at=? WHERE lot_id=? AND slot_no=?", (int(bool(occ)), now(), lot_id, i))
     conn.execute("UPDATE lots SET last_seen=? WHERE id=?", (now(), lot_id))
     return lot_counts(conn, get_lot(conn, lot_id))
@@ -826,6 +845,9 @@ def admin_dashboard(lot_id: str, user=Depends(require_role("admin")), conn=Depen
 def admin_toggle_slot(lot_id: str, slot_no: int, user=Depends(require_role("admin")), conn=Depends(get_db)):
     """Sensor simulator for demos without hardware."""
     admin_lot(conn, user, lot_id)
+    cur = conn.execute("SELECT occupied FROM slots WHERE lot_id=? AND slot_no=?", (lot_id, slot_no)).fetchone()
+    if cur is not None:
+        twin_record(conn, lot_id, slot_no, 1 - int(cur["occupied"]))
     conn.execute("UPDATE slots SET occupied=1-occupied, updated_at=? WHERE lot_id=? AND slot_no=?", (now(), lot_id, slot_no))
     conn.execute("UPDATE lots SET last_seen=? WHERE id=?", (now(), lot_id))
     return {"ok": True}
