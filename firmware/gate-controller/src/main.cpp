@@ -87,6 +87,7 @@ static void openGate(Gate& g) {
   if (!g.open) {
     g.servo.write(SERVO_OPEN);
     g.open = true;
+    Serial.printf("barrier %s: OPEN\n", g.name);
     feedback(true);
   }
   g.closeAt = millis() + OPEN_HOLD_MS;
@@ -108,10 +109,12 @@ static int httpRequest(bool post, const String& path, const String& body, String
   String url = String(API_BASE) + path;
   HTTPClient http;
   http.setTimeout(HTTP_TIMEOUT_MS);
-  WiFiClientSecure secure;
-  WiFiClient plain;
+  http.setReuse(true);      // keep the TCP/TLS connection open between requests: one handshake instead of one per poll
+  static WiFiClientSecure secure;   // static so the connection outlives this call
+  static WiFiClient plain;
+  static bool secureReady = false;
   if (url.startsWith("https://")) {
-    secure.setInsecure();   // DEMO ONLY: skips certificate check. Pin a CA cert for production.
+    if (!secureReady) { secure.setInsecure(); secureReady = true; }   // DEMO ONLY: skips certificate check. Pin a CA cert for production.
     http.begin(secure, url);
   } else {
     http.begin(plain, url); // plain HTTP for a LAN server
@@ -219,7 +222,14 @@ static void checkSlots() {
 
 // ---- Wi-Fi ---------------------------------------------------------------------
 static void keepWifi() {
-  if (WiFi.status() == WL_CONNECTED) return;
+  static bool wasUp = false;
+  bool up = WiFi.status() == WL_CONNECTED;
+  if (up != wasUp) {
+    wasUp = up;
+    if (up) Serial.printf("Wi-Fi: connected, IP %s\n", WiFi.localIP().toString().c_str());
+    else Serial.println("Wi-Fi: lost");
+  }
+  if (up) return;
   if (millis() - lastWifiTry < WIFI_RETRY_MS) return;
   lastWifiTry = millis();
   Serial.println("Wi-Fi: (re)connecting...");

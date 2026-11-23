@@ -5,3 +5,8 @@ build/
 .claude/settings.local.json
 
 .env
+
+# ParkQ film: voice recordings, API keys and render output stay local
+parkq-film/voice_clone/
+parkq-film/.venv-tts/
+parkq-film/out/

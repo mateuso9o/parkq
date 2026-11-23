@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "author": "ParkQ",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+
+    { "type": "wokwi-servo", "id": "servoIn", "top": -120, "left": 160, "attrs": {} },
+    { "type": "wokwi-servo", "id": "servoOut", "top": -120, "left": 330, "attrs": {} },
+
+    { "type": "wokwi-led", "id": "ledG", "top": -110, "left": -150, "attrs": { "color": "green" } },
+    { "type": "wokwi-led", "id": "ledR", "top": -110, "left": -90, "attrs": { "color": "red" } },
+    { "type": "wokwi-resistor", "id": "rG", "top": -40, "left": -158, "rotate": 90, "attrs": { "value": "330" } },
+    { "type": "wokwi-resistor", "id": "rR", "top": -40, "left": -98, "rotate": 90, "attrs": { "value": "330" } },
+    { "type": "wokwi-buzzer", "id": "bz", "top": 20, "left": -230, "attrs": { "volume": "0.1" } },
+
+    { "type": "wokwi-slide-switch", "id": "slot1", "top": 260, "left": 160, "attrs": { "value": "1" } },
+    { "type": "wokwi-slide-switch", "id": "slot2", "top": 260, "left": 240, "attrs": { "value": "1" } },
+    { "type": "wokwi-slide-switch", "id": "slot3", "top": 260, "left": 320, "attrs": { "value": "1" } },
+    { "type": "wokwi-slide-switch", "id": "slot4", "top": 260, "left": 400, "attrs": { "value": "1" } }
+  ],
+  "connections": [
+    [ "esp:TX", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX", "$serialMonitor:TX", "", [] ],
+
+    [ "servoIn:PWM", "esp:18", "orange", [] ],
+    [ "servoIn:V+", "esp:5V", "red", [] ],
+    [ "servoIn:GND", "esp:GND.1", "black", [] ],
+    [ "servoOut:PWM", "esp:19", "orange", [] ],
+    [ "servoOut:V+", "esp:5V", "red", [] ],
+    [ "servoOut:GND", "esp:GND.1", "black", [] ],
+
+    [ "esp:23", "rG:1", "green", [] ],
+    [ "rG:2", "ledG:A", "green", [] ],
+    [ "ledG:C", "esp:GND.1", "black", [] ],
+    [ "esp:22", "rR:1", "red", [] ],
+    [ "rR:2", "ledR:A", "red", [] ],
+    [ "ledR:C", "esp:GND.1", "black", [] ],
+
+    [ "esp:4", "bz:2", "purple", [] ],
+    [ "bz:1", "esp:GND.1", "black", [] ],
+
+    [ "slot1:2", "esp:34", "blue", [] ],
+    [ "slot1:1", "esp:GND.1", "black", [] ],
+    [ "slot1:3", "esp:3V3", "red", [] ],
+    [ "slot2:2", "esp:35", "blue", [] ],
+    [ "slot2:1", "esp:GND.1", "black", [] ],
+    [ "slot2:3", "esp:3V3", "red", [] ],
+    [ "slot3:2", "esp:VP", "blue", [] ],
+    [ "slot3:1", "esp:GND.1", "black", [] ],
+    [ "slot3:3", "esp:3V3", "red", [] ],
+    [ "slot4:2", "esp:VN", "blue", [] ],
+    [ "slot4:1", "esp:GND.1", "black", [] ],
+    [ "slot4:3", "esp:3V3", "red", [] ]
+  ],
+  "dependencies": {}
+}
