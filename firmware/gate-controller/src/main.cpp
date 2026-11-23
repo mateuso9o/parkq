@@ -33,6 +33,7 @@ static const uint32_t SLOTS_HEARTBEAT_MS = 30000;  // POST slots at least every 
 static const uint32_t SLOTS_SCAN_MS = 100;         // read IR sensors
 static const uint32_t WIFI_RETRY_MS = 5000;
 static const uint32_t HTTP_TIMEOUT_MS = 4000;
+static const int32_t  CONNECT_TIMEOUT_MS = 3000;
 static const size_t   QR_MAX_LEN = 512;
 static const uint32_t BEEP_SHORT_MS = 150;
 static const uint32_t BEEP_LONG_MS = 800;
@@ -105,15 +106,16 @@ static void updateGates() {
 
 // ---- HTTP helper ---------------------------------------------------------------
 // Returns the HTTP status (<0 on error); the response body goes into `out`.
-static int httpRequest(bool post, const String& path, const String& body, String& out) {
-  String url = String(API_BASE) + path;
+static int httpRequestOnce(bool post, const String& url, const String& body, String& out) {
   HTTPClient http;
   http.setTimeout(HTTP_TIMEOUT_MS);
+  http.setConnectTimeout(CONNECT_TIMEOUT_MS);   // a dead TLS handshake must not block the loop for long
   http.setReuse(true);      // keep the TCP/TLS connection open between requests: one handshake instead of one per poll
   static WiFiClientSecure secure;   // static so the connection outlives this call
   static WiFiClient plain;
   static bool secureReady = false;
-  if (url.startsWith("https://")) {
+  bool https = url.startsWith("https://");
+  if (https) {
     if (!secureReady) { secure.setInsecure(); secureReady = true; }   // DEMO ONLY: skips certificate check. Pin a CA cert for production.
     http.begin(secure, url);
   } else {
@@ -128,6 +130,19 @@ static int httpRequest(bool post, const String& path, const String& body, String
   }
   if (code > 0) out = http.getString();
   http.end();
+  if (code <= 0 && https) secure.stop();   // drop a half-dead connection so the next try starts a clean handshake
+  return code;
+}
+
+// One immediate retry: Wokwi's gateway (and flaky Wi-Fi) resets many TLS handshakes with -80, and waiting a
+// whole poll period between attempts made a barrier command take minutes to arrive.
+static int httpRequest(bool post, const String& path, const String& body, String& out) {
+  String url = String(API_BASE) + path;
+  int code = httpRequestOnce(post, url, body, out);
+  if (code <= 0 && WiFi.status() == WL_CONNECTED) {
+    delay(150);
+    code = httpRequestOnce(post, url, body, out);
+  }
   return code;
 }
 
