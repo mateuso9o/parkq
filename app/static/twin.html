@@ -218,6 +218,8 @@
     var cm = makeCarMesh(CAR_COLORS[i]); cm.visible = false; scene.add(cm);
     cars.push({ mesh: cm, present: false, path: null, seg: 0, speed: 7, onDone: null, lane: null });
   }
+  var guest = { mesh: makeCarMesh(0x9aa3b0), path: null, seg: 0, speed: 7, onDone: null, lane: null, waiting: 0 };
+  guest.mesh.visible = false; scene.add(guest.mesh);
   function drive(car, pts, lane, done) {
     car.path = pts; car.seg = 0; car.lane = lane; car.onDone = done || null;
     car.mesh.position.set(pts[0][0], 0, pts[0][1]); car.mesh.visible = true;
@@ -235,7 +237,20 @@
   function removeInstant(k) { var c = cars[k]; c.path = null; c.present = false; c.mesh.visible = false; }
   function driveIn(k) {
     var c = cars[k]; c.present = true;
-    drive(c, [[START_X, ENTRY_LANE_Z], [SLOT_X[k], ENTRY_LANE_Z], [SLOT_X[k], SLOT_Z]], "in", function () { c.mesh.rotation.y = Math.PI; });
+    var from = [START_X, ENTRY_LANE_Z];
+    if (guest.waiting > 0) {                       // a scanned car is already waiting inside: it is the one that parks
+      from = [guest.mesh.position.x, guest.mesh.position.z]; guest.waiting = 0; guest.path = null; guest.mesh.visible = false;
+    }
+    drive(c, [from, [SLOT_X[k], ENTRY_LANE_Z], [SLOT_X[k], SLOT_Z]], "in", function () { c.mesh.rotation.y = Math.PI; });
+  }
+  function spawnGuest(dir) {                       // a ticket was scanned: show a car passing the barrier
+    if (guest.path || guest.waiting > 0) return;
+    if (dir === "in") {
+      drive(guest, [[START_X, ENTRY_LANE_Z], [-6, ENTRY_LANE_Z]], "in", function () { guest.waiting = 12; });
+    } else {
+      if (cars.some(function (c) { return c.path && c.lane === "out"; })) return;   // a parked car is already leaving
+      drive(guest, [[4, EXIT_LANE_Z], [END_X, EXIT_LANE_Z]], "out", function () { guest.mesh.visible = false; });
+    }
   }
   function driveOut(k) {
     var c = cars[k]; c.present = false;
@@ -243,6 +258,7 @@
   }
 
   // ---------- data model ----------
+  var seen = {}, firstLoad = true, prevT = null;
   var data = null, offset = 0, failCount = 0, mode = "live", replayT = 0, playing = false, shown = null, jump = true;
   function serverNow() { return Date.now() / 1000 + offset; }
 
@@ -282,7 +298,7 @@
 
   function carNear(gateName) {
     var b = barriers[gateName];
-    return cars.some(function (c) { return c.path && c.lane === gateName && Math.abs(c.mesh.position.x - b.x) < 2.8; });
+    return cars.concat([guest]).some(function (c) { return c.path && c.lane === gateName && Math.abs(c.mesh.position.x - b.x) < 2.8; });
   }
 
   // ---------- HUD ----------
@@ -334,6 +350,13 @@
         offset = d.now - Date.now() / 1000;
         var first = !data; data = d; failCount = 0; $("reconnect").hidden = true;
         renderStatic(); if (first) jump = true;
+        if (mode === "live") d.events.forEach(function (e) {
+          if (e.kind !== "car_in" && e.kind !== "car_out") return;
+          var key = e.kind + e.at + (e.gate || "");
+          if (seen[key]) return; seen[key] = 1;
+          if (!firstLoad && serverNow() - e.at < 6) spawnGuest(e.kind === "car_in" ? "in" : "out");
+        });
+        firstLoad = false;
       })
       .catch(function () { failCount++; if (failCount >= 2) $("reconnect").hidden = false; })
       .then(function () { setTimeout(poll, POLL_MS); });
@@ -416,7 +439,14 @@
         b.group.rotation.x = b.angle;
         b.lamp.material.color.set(b.target ? 0x3ddc84 : 0xff5a5f); b.lamp.material.emissive.set(b.target ? 0x1fbf6a : 0xff2a30);
       });
-      cars.forEach(function (c) { stepCar(c, dt); });
+      if (mode === "replay" && prevT !== null && st.T > prevT && st.T - prevT < 3) {       // replay playing: cars appear as time passes their event
+        data.events.forEach(function (e) {
+          if ((e.kind === "car_in" || e.kind === "car_out") && e.at > prevT && e.at <= st.T) spawnGuest(e.kind === "car_in" ? "in" : "out");
+        });
+      }
+      prevT = st.T;
+      if (guest.waiting > 0) { guest.waiting -= dt; if (guest.waiting <= 0) { guest.waiting = 0; guest.mesh.visible = false; } }
+      cars.concat([guest]).forEach(function (c) { stepCar(c, dt); });
       renderHud(st);
     }
     placeCamera(now); renderer.render(scene, camera); requestAnimationFrame(frame);
