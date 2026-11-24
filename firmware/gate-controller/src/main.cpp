@@ -68,6 +68,30 @@ static const int SLOT_PINS[4] = {PIN_SLOT1, PIN_SLOT2, PIN_SLOT3, PIN_SLOT4};
 static int  lastSlots[4] = {-1, -1, -1, -1};   // -1 = never sent -> sends at boot
 static uint32_t lastSlotsSent = 0, lastSlotsScan = 0, lastPoll = 0, lastWifiTry = 0;
 
+// ---- simulated car (Wokwi demo only: #define DEMO_AUTO_CAR in config.h) ----------
+// The simulator has no car to block an IR sensor, so after the entry barrier
+// opens a virtual car takes the first free slot, and the exit barrier frees it.
+// The value sent is sensor OR virtual car, so the slide switches still work.
+#ifdef DEMO_AUTO_CAR
+static const uint32_t AUTO_PARK_MS = 4000;
+static int virtCar[4] = {0, 0, 0, 0};
+static uint32_t autoParkAt = 0;
+
+static void autoCarGateOpened(const char* gate) {
+  if (strcmp(gate, "in") == 0) { autoParkAt = millis() + AUTO_PARK_MS; return; }
+  for (int i = 0; i < 4; i++)
+    if (virtCar[i]) { virtCar[i] = 0; Serial.printf("auto: car left slot %d\n", i + 1); return; }
+}
+
+static void updateAutoCar() {
+  if (!autoParkAt || (int32_t)(millis() - autoParkAt) < 0) return;
+  autoParkAt = 0;
+  for (int i = 0; i < 4; i++)
+    if (!virtCar[i] && digitalRead(SLOT_PINS[i]) != LOW) { virtCar[i] = 1; Serial.printf("auto: car parked in slot %d\n", i + 1); return; }
+  Serial.println("auto: no free slot");
+}
+#endif
+
 // ---- LED / buzzer feedback (non-blocking) ------------------------------------
 static uint32_t ledGreenOff = 0, ledRedOff = 0, buzzOff = 0;
 
@@ -218,6 +242,9 @@ static void checkSlots() {
 #else
     cur[i] = digitalRead(SLOT_PINS[i]) == LOW ? 1 : 0;  // LOW = car present
 #endif
+#ifdef DEMO_AUTO_CAR
+    cur[i] = cur[i] || virtCar[i];
+#endif
     if (cur[i] != lastSlots[i]) changed = true;
   }
   bool heartbeat = millis() - lastSlotsSent >= SLOTS_HEARTBEAT_MS;
@@ -278,6 +305,9 @@ void loop() {
   for (Gate& g : gates) readQr(g);
   updateGates();
   updateFeedback();
+#ifdef DEMO_AUTO_CAR
+  updateAutoCar();
+#endif
 
   if (WiFi.status() != WL_CONNECTED) return;
   uint32_t now = millis();

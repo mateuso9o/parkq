@@ -14,7 +14,9 @@
 3. Point the phone at the ticket QR. The phone shows the welcome screen; within ~1 s the **entry servo in
    Wokwi turns to 90°**, the green LED lights, the buzzer beeps, and after 3 s the barrier closes.
 4. Exit: `.../gate?lot=LOT02&dir=out`, scan the same ticket; the **exit servo** opens.
-5. Sensors: slide a switch left in Wokwi (= car present, LOW). The admin dashboard / lot page changes the
+5. Auto car (Wokwi `config.h` has `#define DEMO_AUTO_CAR`): 4 s after the entry barrier opens the firmware marks the first
+   free slot occupied (`auto: car parked in slot N`), and the exit barrier frees it. Remove the define for the real board.
+6. Sensors: slide a switch left in Wokwi (= car present, LOW). The admin dashboard / lot page changes the
    free-slot count for LOT02.
 
 ## Digital twin (3D)

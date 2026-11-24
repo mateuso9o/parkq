@@ -12,3 +12,5 @@
 
 // QR reader (GM65/GM861) default baud rate
 #define QR_BAUD     9600
+
+// #define DEMO_AUTO_CAR          // simulator only: a virtual car parks after the entry barrier opens
