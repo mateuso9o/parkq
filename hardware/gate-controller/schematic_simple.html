@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8">
+<style>
+@font-face{font-family:NST;font-weight:400;src:url(../../app/static/fonts/noto-sans-thai-thai-400.woff2)}
+@font-face{font-family:NST;font-weight:400;unicode-range:U+0000-00FF;src:url(../../app/static/fonts/noto-sans-thai-latin-400.woff2)}
+@font-face{font-family:NST;font-weight:700;src:url(../../app/static/fonts/noto-sans-thai-thai-700.woff2)}
+@font-face{font-family:NST;font-weight:700;unicode-range:U+0000-00FF;src:url(../../app/static/fonts/noto-sans-thai-latin-700.woff2)}
+html,body{margin:0;background:#fff;font-family:NST,sans-serif;color:#101828}
+svg text{font-family:NST,sans-serif}
+</style></head><body>
+<svg width="1600" height="920" viewBox="0 0 1600 920" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <style>
+    .w{stroke:#101828;stroke-width:2;fill:none}
+    .p5{stroke:#d92d20;stroke-width:2.4;fill:none}
+    .p3{stroke:#b54708;stroke-width:2.4;fill:none}
+    .g{stroke:#475467;stroke-width:2;fill:none}
+    .sig{stroke:#2563eb;stroke-width:2.2;fill:none}
+    .box{fill:#fff;stroke:#101828;stroke-width:2}
+    .blk{fill:#f9fafb;stroke:#d0d5dd;stroke-width:1.5}
+    .t{font-size:15px;fill:#101828}
+    .s{font-size:13px;fill:#475467}
+    .h{font-size:17px;font-weight:700;fill:#101828}
+    .pin{font-size:13px;font-weight:700;fill:#2563eb}
+  </style>
+  <g id="gnd"><line class="g" x1="0" y1="0" x2="0" y2="8"/><line class="g" x1="-10" y1="8" x2="10" y2="8"/><line class="g" x1="-6" y1="13" x2="6" y2="13"/><line class="g" x1="-2" y1="18" x2="2" y2="18"/></g>
+</defs>
+
+<text x="40" y="44" style="font-size:26px;font-weight:700">ParkQ Gate Controller · ผังวงจรอย่างง่าย</text>
+<text x="40" y="72" class="s">วาดใหม่จากแบบ PCB (hardware/gate-controller/design.py) แยกเป็นส่วน · เส้นแดง = 5V · ส้ม = 3.3V · น้ำเงิน = สัญญาณ · เทา = GND</text>
+
+<!-- ===== power ===== -->
+<rect class="blk" x="40" y="100" width="520" height="250" rx="12"/>
+<text x="60" y="130" class="h">1. ไฟเลี้ยง 5V</text>
+<rect class="box" x="70" y="160" width="80" height="44" rx="6"/><text x="82" y="187" class="t">DC 5V</text>
+<text x="70" y="222" class="s">แจ็ก 5.5×2.1</text>
+<line class="p5" x1="150" y1="182" x2="190" y2="182"/>
+<rect class="box" x="190" y="168" width="70" height="28" rx="4"/><text x="200" y="188" class="t">PTC 2A</text>
+<text x="190" y="216" class="s">F1 ฟิวส์รีเซ็ตได้</text>
+<line class="p5" x1="260" y1="182" x2="300" y2="182"/>
+<polygon points="300,168 300,196 324,182" fill="#fff" stroke="#101828" stroke-width="2"/><line class="w" x1="324" y1="168" x2="324" y2="196"/>
+<text x="270" y="160" class="s">D1 1N5822 กันต่อกลับขั้ว</text>
+<line class="p5" x1="324" y1="182" x2="530" y2="182"/><text x="470" y="172" class="t" style="fill:#d92d20;font-weight:700">+5V</text>
+<!-- caps -->
+<line class="p5" x1="380" y1="182" x2="380" y2="240"/><line class="w" x1="366" y1="240" x2="394" y2="240"/><line class="w" x1="366" y1="248" x2="394" y2="248"/><line class="g" x1="380" y1="248" x2="380" y2="270"/><use href="#gnd" x="380" y="270"/>
+<text x="344" y="306" class="s">C1 470µF</text>
+<line class="p5" x1="440" y1="182" x2="440" y2="240"/><line class="w" x1="426" y1="240" x2="454" y2="240"/><line class="w" x1="426" y1="248" x2="454" y2="248"/><line class="g" x1="440" y1="248" x2="440" y2="270"/><use href="#gnd" x="440" y="270"/>
+<text x="420" y="306" class="s">C2 100nF</text>
+<line class="p5" x1="500" y1="182" x2="500" y2="210"/><rect class="box" x="490" y="210" width="20" height="34"/><text x="514" y="232" class="s">330</text>
+<polygon points="490,252 510,252 500,268" fill="#22c55e" stroke="#101828" stroke-width="1.5"/><line class="g" x1="500" y1="268" x2="500" y2="280"/><use href="#gnd" x="500" y="280"/>
+<text x="470" y="330" class="s">ไฟแสดงไฟเข้า</text>
+<text x="60" y="338" class="s">ESP32 มีตัวแปลงไฟในบอร์ด แปลง 5V เป็น 3.3V ให้ตัวเองและเซนเซอร์</text>
+
+<!-- ===== ESP32 ===== -->
+<rect class="box" x="640" y="120" width="300" height="760" rx="14" style="stroke-width:3"/>
+<text x="700" y="160" style="font-size:22px;font-weight:700">ESP32</text>
+<text x="700" y="184" class="s">DevKitC-32E · Wi-Fi 2.4 GHz</text>
+<g class="t">
+  <text x="656" y="232">5V (VIN)</text><text x="656" y="262">3V3</text><text x="656" y="292">GND</text>
+  <text x="656" y="420" class="pin">GPIO16 · RX2</text><text x="656" y="450" class="pin">GPIO17 · TX2</text>
+  <text x="656" y="500" class="pin">GPIO32 · RX1</text><text x="656" y="530" class="pin">GPIO33 · TX1</text>
+</g>
+<g class="pin" text-anchor="end">
+  <text x="924" y="232">GPIO18</text><text x="924" y="262">GPIO19</text>
+  <text x="924" y="372">GPIO34</text><text x="924" y="402">GPIO35</text><text x="924" y="432">GPIO36</text><text x="924" y="462">GPIO39</text>
+  <text x="924" y="602">GPIO23</text><text x="924" y="632">GPIO22</text>
+  <text x="924" y="790">GPIO4</text>
+</g>
+<line class="p5" x1="560" y1="182" x2="600" y2="182"/><line class="p5" x1="600" y1="182" x2="600" y2="227"/><line class="p5" x1="600" y1="227" x2="640" y2="227"/>
+<line class="g" x1="610" y1="287" x2="640" y2="287"/><use href="#gnd" x="610" y="287"/>
+<text x="700" y="840" class="s">ทุกอุปกรณ์ใช้ GND ร่วมกัน</text>
+
+<!-- ===== servos ===== -->
+<rect class="blk" x="1020" y="100" width="540" height="190" rx="12"/>
+<text x="1040" y="130" class="h">2. ไม้กั้น (เซอร์โว SG90 × 2)</text>
+<line class="sig" x1="940" y1="227" x2="1100" y2="227"/><line class="sig" x1="940" y1="257" x2="1100" y2="257"/>
+<rect class="box" x="1100" y="206" width="150" height="34" rx="6"/><text x="1112" y="229" class="t">เซอร์โว ทางเข้า</text>
+<rect class="box" x="1100" y="246" width="150" height="34" rx="6" transform="translate(180,-40)"/><text x="1292" y="229" class="t">เซอร์โว ทางออก</text>
+<line class="sig" x1="1100" y1="257" x2="1270" y2="257"/><line class="sig" x1="1270" y1="257" x2="1270" y2="240"/><line class="sig" x1="1270" y1="240" x2="1280" y2="240"/>
+<text x="1040" y="160" class="s">สาย 3 เส้น: ส้ม = สัญญาณ PWM จาก ESP32 · แดง = +5V · น้ำตาล = GND</text>
+<text x="1040" y="182" class="s">0° = ปิด · 90° = เปิด ค้าง 3 วินาทีแล้วปิดเอง</text>
+<text x="1440" y="225" class="t" style="fill:#d92d20">+5V, GND</text>
+
+<!-- ===== IR sensors ===== -->
+<rect class="blk" x="1020" y="310" width="540" height="190" rx="12"/>
+<text x="1040" y="340" class="h">3. เซนเซอร์ช่องจอด (IR × 4)</text>
+<g>
+  <line class="sig" x1="940" y1="367" x2="1100" y2="367"/><line class="sig" x1="940" y1="397" x2="1100" y2="397"/>
+  <line class="sig" x1="940" y1="427" x2="1100" y2="427"/><line class="sig" x1="940" y1="457" x2="1100" y2="457"/>
+  <rect class="box" x="1100" y="352" width="120" height="28" rx="5"/><text x="1112" y="372" class="t">IR ช่อง 1</text>
+  <rect class="box" x="1100" y="382" width="120" height="28" rx="5" transform="translate(0,0)" opacity="0"/>
+  <text x="1112" y="402" class="t">IR ช่อง 2</text><text x="1112" y="432" class="t">IR ช่อง 3</text><text x="1112" y="462" class="t">IR ช่อง 4</text>
+  <rect class="box" x="1100" y="384" width="120" height="26" rx="5" fill-opacity="0"/><rect class="box" x="1100" y="414" width="120" height="26" rx="5" fill-opacity="0"/><rect class="box" x="1100" y="444" width="120" height="26" rx="5" fill-opacity="0"/>
+</g>
+<text x="1240" y="372" class="s">ไฟเลี้ยง <tspan style="fill:#b54708;font-weight:700">3.3V</tspan> + GND</text>
+<text x="1240" y="398" class="s">OUT = LOW เมื่อมีรถบัง</text>
+<text x="1240" y="424" class="s">ใช้ขา 34–39 รับเข้าอย่างเดียว</text>
+<text x="1240" y="450" class="s">เลี้ยง 3.3V จึงไม่ส่ง 5V เข้าขา ESP32</text>
+
+<!-- ===== LEDs ===== -->
+<rect class="blk" x="1020" y="520" width="540" height="160" rx="12"/>
+<text x="1040" y="550" class="h">4. ไฟสถานะ</text>
+<line class="sig" x1="940" y1="597" x2="1110" y2="597"/><rect class="box" x="1110" y="587" width="44" height="20"/><text x="1116" y="602" class="s">330Ω</text>
+<line class="w" x1="1154" y1="597" x2="1190" y2="597"/><polygon points="1190,585 1190,609 1210,597" fill="#22c55e" stroke="#101828" stroke-width="1.5"/><line class="g" x1="1210" y1="597" x2="1240" y2="597"/><use href="#gnd" x="1240" y="597"/>
+<text x="1270" y="597" class="t">LED เขียว = สแกนผ่าน</text>
+<line class="sig" x1="940" y1="627" x2="1110" y2="627"/><rect class="box" x="1110" y="637" width="44" height="20" transform="translate(0,-20)"/><text x="1116" y="632" class="s">330Ω</text>
+<line class="w" x1="1154" y1="627" x2="1190" y2="627"/><polygon points="1190,615 1190,639 1210,627" fill="#ef4444" stroke="#101828" stroke-width="1.5"/>
+<line class="g" x1="1210" y1="627" x2="1240" y2="627"/><use href="#gnd" x="1240" y="627"/>
+<text x="1270" y="642" class="t">LED แดง = สแกนไม่ผ่าน</text>
+<text x="1040" y="668" class="s">ตัวต้านทาน 330Ω จำกัดกระแสไม่ให้ LED และขา GPIO เสีย</text>
+
+<!-- ===== buzzer ===== -->
+<rect class="blk" x="1020" y="700" width="540" height="200" rx="12"/>
+<text x="1040" y="730" class="h">5. บัซเซอร์ (ผ่านทรานซิสเตอร์)</text>
+<g transform="translate(0,28)"><line class="sig" x1="940" y1="757" x2="1080" y2="757"/><rect class="box" x="1080" y="747" width="44" height="20"/><text x="1088" y="762" class="s">1kΩ</text>
+<line class="w" x1="1124" y1="757" x2="1170" y2="757"/>
+<circle cx="1190" cy="770" r="26" fill="#fff" stroke="#101828" stroke-width="2"/><text x="1092" y="808" class="s">Q1 S8050</text>
+<line class="w" x1="1170" y1="757" x2="1182" y2="757"/><line class="w" x1="1182" y1="745" x2="1182" y2="790"/>
+<line class="w" x1="1182" y1="752" x2="1200" y2="744"/><line class="w" x1="1200" y1="744" x2="1200" y2="726"/>
+<line class="w" x1="1182" y1="784" x2="1200" y2="794"/><line class="g" x1="1200" y1="794" x2="1200" y2="818"/><use href="#gnd" x="1200" y="818"/>
+<rect class="box" x="1250" y="722" width="110" height="34" rx="6"/><text x="1262" y="745" class="t">บัซเซอร์ 5V</text>
+<line class="w" x1="1200" y1="726" x2="1250" y2="739"/>
+<line class="p5" x1="1360" y1="739" x2="1400" y2="739"/><text x="1406" y="744" class="t" style="fill:#d92d20">+5V</text>
+<text x="1250" y="782" class="s">D2 1N4148 ขนานบัซเซอร์ กันไฟย้อน</text>
+</g>
+<text x="1040" y="890" class="s">ขา GPIO จ่ายกระแสน้อย จึงให้ทรานซิสเตอร์เป็นสวิตช์เปิดไฟ 5V ให้บัซเซอร์</text>
+
+<!-- ===== QR readers ===== -->
+<rect class="blk" x="40" y="380" width="560" height="240" rx="12"/>
+<text x="60" y="410" class="h">6. เครื่องอ่าน QR (UART 9600)</text>
+<rect class="box" x="70" y="430" width="160" height="60" rx="6"/><text x="84" y="456" class="t">QR ทางเข้า</text><text x="84" y="478" class="s">TX / RX · 5V</text>
+<line class="sig" x1="230" y1="447" x2="360" y2="447"/><rect class="box" x="360" y="437" width="44" height="20"/><text x="368" y="452" class="s">1kΩ</text><line class="sig" x1="404" y1="447" x2="640" y2="415"/>
+<line class="sig" x1="230" y1="473" x2="360" y2="473"/><rect class="box" x="360" y="463" width="44" height="20"/><text x="368" y="478" class="s">1kΩ</text><line class="sig" x1="404" y1="473" x2="640" y2="445"/>
+<rect class="box" x="70" y="510" width="160" height="60" rx="6"/><text x="84" y="536" class="t">QR ทางออก</text><text x="84" y="558" class="s">ยังไม่ใส่ (สแกนด้วยมือถือ)</text>
+<line class="sig" x1="230" y1="527" x2="360" y2="527"/><rect class="box" x="360" y="517" width="44" height="20"/><text x="368" y="532" class="s">1kΩ</text><line class="sig" x1="404" y1="527" x2="640" y2="495"/>
+<line class="sig" x1="230" y1="553" x2="360" y2="553"/><rect class="box" x="360" y="543" width="44" height="20"/><text x="368" y="558" class="s">1kΩ</text><line class="sig" x1="404" y1="553" x2="640" y2="525"/>
+<text x="60" y="600" class="s">1kΩ กันกระแสเกินที่สายข้อมูล · มีที่ใส่ 2kΩ (R5, R6) ทำตัวแบ่งแรงดัน ถ้าขา TX ของเครื่องอ่านเป็น 5V</text>
+
+<!-- ===== flow ===== -->
+<rect class="blk" x="40" y="650" width="560" height="250" rx="12"/>
+<text x="60" y="680" class="h">การทำงาน 1 รอบ</text>
+<g class="t">
+  <text x="60" y="714">1. สแกน QR ตั๋ว → ESP32 รับรหัสทาง UART</text>
+  <text x="60" y="744">2. ESP32 ส่งรหัสไปเซิร์ฟเวอร์ผ่าน Wi-Fi (HTTPS)</text>
+  <text x="60" y="774">3. เซิร์ฟเวอร์ตรวจตั๋ว → ตอบ "เปิด" หรือ "ไม่ผ่าน"</text>
+  <text x="60" y="804">4. ผ่าน: เซอร์โวยกไม้กั้น + LED เขียว + บี๊บสั้น</text>
+  <text x="60" y="834">5. ไม่ผ่าน: LED แดง + บี๊บยาว ไม้กั้นไม่ขยับ</text>
+  <text x="60" y="864">6. ทุกครั้งที่เซนเซอร์เปลี่ยน ส่งสถานะช่องจอดไปเซิร์ฟเวอร์</text>
+</g>
+</svg>
+</body></html>
