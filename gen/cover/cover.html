@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8">
+<style>
+@font-face{font-family:BJ;font-weight:700;src:url(../../app/static/fonts/bai-jamjuree-latin-700.woff2)}
+@font-face{font-family:BJ;font-weight:500;src:url(../../app/static/fonts/bai-jamjuree-latin-500.woff2)}
+@font-face{font-family:BJT;font-weight:700;src:url(../../app/static/fonts/bai-jamjuree-thai-700.woff2)}
+@font-face{font-family:BJT;font-weight:500;src:url(../../app/static/fonts/bai-jamjuree-thai-500.woff2)}
+@font-face{font-family:NST;font-weight:400;src:url(../../app/static/fonts/noto-sans-thai-thai-400.woff2)}
+@font-face{font-family:NST;font-weight:400;unicode-range:U+0000-00FF;src:url(../../app/static/fonts/noto-sans-thai-latin-400.woff2)}
+@font-face{font-family:NST;font-weight:500;src:url(../../app/static/fonts/noto-sans-thai-latin-500.woff2)}
+:root{--flap:#0b0b0b;--panel:#16181b;--steel:#3a3f45;--letter:#f2f2f2;--dim:#9aa1a9;--amber:#ffb000}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:816px;height:1056px;background:var(--flap);color:var(--letter);font-family:NST,BJT,BJ,sans-serif}
+.page{position:relative;width:816px;height:1056px;padding:64px 64px 56px;display:flex;flex-direction:column}
+.top{display:flex;justify-content:space-between;font-family:BJT,BJ;font-weight:500;font-size:13px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase}
+.top b{color:var(--amber);font-weight:700}
+.word{margin-top:110px;display:flex;gap:10px}
+.cell{width:92px;height:128px;background:var(--panel);border:1px solid var(--steel);border-radius:8px;display:grid;place-items:center;position:relative;font-family:BJ;font-weight:700;font-size:96px;line-height:1;color:var(--letter)}
+.cell::after{content:"";position:absolute;left:0;right:0;top:50%;height:2px;background:var(--flap)}
+.cell.a{color:var(--amber)}
+h1{margin-top:44px;font-family:BJT,BJ;font-weight:700;font-size:44px;line-height:1.25}
+.sub{margin-top:14px;font-size:19px;line-height:1.6;color:var(--dim);max-width:640px}
+.rule{margin-top:36px;width:120px;height:6px;background:var(--amber)}
+.board{margin-top:auto;border-top:1px solid var(--steel)}
+.row{display:grid;grid-template-columns:150px 1fr;padding:13px 0;border-bottom:1px solid var(--steel);font-size:16px;line-height:1.5}
+.row .k{font-family:BJT,BJ;font-weight:500;color:var(--dim);letter-spacing:.04em}
+.row .v{color:var(--letter)}
+.mem i{display:flex;justify-content:space-between;font-style:normal;padding:2px 0}.mem small{color:var(--amber);font-family:BJ;font-weight:500;font-size:14px;letter-spacing:.08em}
+.foot{display:flex;justify-content:space-between;margin-top:18px;font-family:BJ;font-weight:500;font-size:13px;color:var(--dim);letter-spacing:.1em}
+</style></head><body><div class="page">
+<div class="top"><span>Software Engineering</span><span><b>●</b> Project Book</span></div>
+<div class="word"><div class="cell">P</div><div class="cell">a</div><div class="cell">r</div><div class="cell">k</div><div class="cell a">Q</div></div>
+<h1>รายงานโครงงานฉบับสมบูรณ์</h1>
+<p class="sub">ระบบซื้อสิทธิ์และจองที่จอดรถออนไลน์ ใช้ตั๋ว QR สแกนเปิดไม้กั้นหน้าลาน</p>
+<div class="rule"></div>
+<div class="board">
+ <div class="row"><span class="k">ทีม</span><span class="v">ParkQ</span></div>
+ <div class="row"><span class="k">สมาชิก</span><span class="v mem"><i>พีรพัฒน์ เครือวัลย์ 68076264<small>PM · QA</small></i><i>สงกรานต์ บุญเสริม 68078846<small>SA</small></i><i>ภูริภัทร เมตมาตร์ 68051956<small>Dev</small></i></span></div>
+ <div class="row"><span class="k">รายวิชา</span><span class="v">Software Engineering</span></div>
+ <div class="row"><span class="k">เวอร์ชัน</span><span class="v">1.0 · 24 พฤศจิกายน 2569</span></div>
+</div>
+<div class="foot"><span>ISO/IEC 29110 · VSE</span><span>PARKQ-SE-BOOK</span></div>
+</div></body></html>

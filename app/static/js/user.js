@@ -37,7 +37,7 @@ let pendingEmail = sessionStorage.getItem("parkq_email") || "";
 function screenLogin() {
   $app.innerHTML = `
     <div class="hero">
-      <div class="board" data-el="1"><span id="brandFlap" class="flap" role="img" aria-label="PARKQ"></span></div>
+      <div class="board" data-el="1"><span id="brandFlap" class="flap" role="img" aria-label="ParkQ"></span></div>
       <p data-el="2">จอดง่าย จองไว ด้วย QR<br><span class="small muted">เช็กที่ว่าง ซื้อสิทธิ์จอด แล้วสแกนเข้าได้ทันที</span></p>
     </div>
     <div class="card float-card stack">
@@ -51,7 +51,7 @@ function screenLogin() {
       <p class="small muted" style="text-align:center;margin:4px 0 0">ไม่ต้องจำรหัสผ่าน เราจะส่งรหัส 6 หลักไปที่อีเมลของคุณ</p>
     </div>
     <p style="text-align:center"><a href="/admin" data-el="6" class="small">สำหรับผู้ดูแลลานจอด / พนักงาน</a></p>`;
-  flapIn($app.querySelector("#brandFlap"), "PARKQ");
+  flapIn($app.querySelector("#brandFlap"), "ParkQ");
   const phone = $app.querySelector("#phone"), accept = $app.querySelector("#accept"), send = $app.querySelector("#send");
   const valid = () => /^[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(\.[A-Za-z0-9\-]+)+$/.test(phone.value.trim());
   const sync = () => { send.disabled = !(valid() && accept.checked); };

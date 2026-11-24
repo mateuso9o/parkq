@@ -17,6 +17,7 @@ from spec_data import *  # noqa: F401,F403
 
 ROOT = Path(__file__).resolve().parent.parent
 IMG = ROOT / "build" / "img"
+EXTRA_HISTORY = []          # later revisions appended to every history table (set by the caller)
 OUT = ROOT / "ส่งงาน"
 CODE = ROOT / "code"
 FONT = "Leelawadee UI"
@@ -167,7 +168,7 @@ def cell_text(cell, text, bold=False, size=9.5, color=None, align=None):
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
 
-def table(d, headers, rows, widths_cm, size=9.5, header_fill="1E5EFF", center_cols=()):
+def table(d, headers, rows, widths_cm, size=9.5, header_fill="1C2530", center_cols=()):
     t = d.add_table(rows=1, cols=len(headers))
     t.style = "Table Grid"
     t.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -255,6 +256,7 @@ def history(d, purpose):
     table(d, ["ลำดับ", "เวอร์ชัน", "รายละเอียดการดำเนินการ", "ผู้ดำเนินการ (วันที่)", "ผู้อนุมัติ (วันที่)"], [
         ("1", "0.1", f"จัดทำ{purpose}", f"{ROLE_MEMBER['SA']} (SA) {DOC_DATE}", ""),
         ("2", "1.0", f"ทบทวนและอนุมัติ{purpose}", f"{ROLE_MEMBER['QA']} (QA) {DOC_DATE}", f"{ROLE_MEMBER['PM']} (PM) {DOC_DATE}"),
+        *EXTRA_HISTORY,
     ], [1.3, 1.7, 6.3, 3.6, 3.6], center_cols=(0, 1))
 
 
