@@ -90,6 +90,7 @@
     <section class="card">
       <h2>เซนเซอร์ IR ช่องจอด (GPIO34 / 35 / 36 / 39)</h2>
       <div class="slots" id="slots"></div>
+      <label class="hint" style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="autoCar" checked> รถจำลองเข้า-ออกช่องเอง: ไม้กั้นทางเข้าเปิดแล้วรถเข้าช่องว่าง ไม้กั้นทางออกเปิดแล้วรถออกจากช่อง</label>
       <p class="hint">กดปุ่มแทนการเอารถ/มือไปบังเซนเซอร์ (LOW = มีรถ) เมื่อค่าเปลี่ยน อุปกรณ์จะส่งขึ้นเซิร์ฟเวอร์ทันที แล้วดูผลที่หน้า <code>/twin</code></p>
     </section>
   </div>
@@ -159,6 +160,23 @@
     if (soundOn) beep(BEEP_SHORT_MS);
   });
 
+  // Simulated car: after the entry barrier opens a car takes the first free slot; the exit barrier frees the slot it parked in.
+  var AUTO_PARK_MS = 4000, parkedOrder = [];
+  function autoCar(name) {
+    if (!$("autoCar").checked) return;
+    if (name === "in") {
+      setTimeout(function () {
+        var k = slots.indexOf(0);
+        if (k < 0) { log("auto: no free slot"); return; }
+        slots[k] = 1; parkedOrder.push(k); renderSlots(); log("auto: car parked in slot " + (k + 1));
+      }, AUTO_PARK_MS);
+    } else {
+      var k = parkedOrder.length ? parkedOrder.shift() : slots.lastIndexOf(1);
+      while (k >= 0 && !slots[k] && parkedOrder.length) k = parkedOrder.shift();
+      if (k < 0 || !slots[k]) { log("auto: no parked car to leave"); return; }
+      slots[k] = 0; renderSlots(); log("auto: car left slot " + (k + 1));
+    }
+  }
   function openGate(name) {
     var g = gates[name], now = performance.now();
     if (!g) return;
@@ -166,6 +184,7 @@
       g.open = true; log("barrier " + name + ": OPEN");
       $("ledG").classList.add("on"); ledGOff = now + LED_MS; beep(BEEP_SHORT_MS);
       $("gate-" + name).classList.add("open"); $("ang-" + name).textContent = SERVO_OPEN + "°";
+      autoCar(name);
     }
     g.closeAt = now + OPEN_HOLD_MS;
   }
